@@ -2,8 +2,6 @@ workflows:
   android-build:
     name: Android APK
     instance_type: mac_mini_m1
-    environment:
-      node: 18
     scripts:
       - name: Install dependencies
         script: |
@@ -13,7 +11,7 @@ workflows:
         script: |
           npx cap init "Solo System" "com.solosystem.app"
           npx cap add android
-          npx cap sync android
+          npx cap copy
       - name: Build APK
         script: |
           cd android
@@ -29,8 +27,6 @@ workflows:
   ios-build:
     name: iOS IPA
     instance_type: mac_mini_m1
-    environment:
-      node: 18
     scripts:
       - name: Install dependencies
         script: |
@@ -40,7 +36,7 @@ workflows:
         script: |
           npx cap init "Solo System" "com.solosystem.app"
           npx cap add ios
-          npx cap sync ios
+          npx cap copy
       - name: Build iOS
         script: |
           cd ios/App
