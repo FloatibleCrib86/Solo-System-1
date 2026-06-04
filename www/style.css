@@ -15,15 +15,10 @@ body {
     padding: 10px;
     border: 1.5px solid #46eaff;
     border-radius: 12px;
-
-    background:
-        linear-gradient(rgba(3, 10, 22, 0.9), rgba(3, 10, 22, 0.94)),
-        url("solo_ui.png");
-
+    background: linear-gradient(rgba(3, 10, 22, 0.9), rgba(3, 10, 22, 0.94)), url("solo_ui.png");
     background-size: cover;
     background-position: center;
     box-shadow: 0 0 18px #00d9ff;
-
     display: flex;
     flex-direction: column;
     overflow: visible;
@@ -34,7 +29,7 @@ body {
 .drag-bar {
     -webkit-app-region: drag;
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
     font-size: 10px;
     margin-bottom: 6px;
@@ -53,41 +48,17 @@ body {
 }
 
 /* PAGES */
-#tasksPage,
-#statsPage,
-#caloriePage,
-#rehabPage,
-#frequentMealPage,
-#notificationsPage {
+#tasksPage, #statsPage, #caloriePage, #rehabPage, #frequentMealPage {
     flex: 1;
     flex-direction: column;
     min-height: 0;
 }
 
-/* ONLY SHOW TASKS PAGE BY DEFAULT */
-#tasksPage {
-    display: flex;
-}
-
-#statsPage {
-    display: none;
-}
-
-#caloriePage {
-    display: none;
-}
-
-#rehabPage {
-    display: none;
-}
-
-#frequentMealPage {
-    display: none;
-}
-
-#notificationsPage {
-    display: none;
-}
+#tasksPage { display: flex; }
+#statsPage { display: none; }
+#caloriePage { display: none; }
+#rehabPage { display: none; }
+#frequentMealPage { display: none; }
 
 /* TITLES */
 h1 {
@@ -113,11 +84,7 @@ h2 {
 }
 
 /* CONTENT BOXES */
-#focus,
-.stat-box,
-.week-focus-item,
-.task,
-.meal-item {
+#focus, .stat-box, .week-focus-item, .task, .meal-item {
     font-size: 10px;
     margin: 3px 0;
     padding: 6px;
@@ -132,29 +99,19 @@ h2 {
     margin-right: 5px;
 }
 
-/* MAIN CONTENT AREA GROWS */
+/* MAIN CONTENT AREA */
 #tasks {
     flex: 1;
     min-height: 0;
 }
 
-#weeklyFocus,
-#mealList,
-#rehabContent {
+#weeklyFocus, #mealList, #rehabContent {
     flex: 0;
     min-height: 0;
 }
 
-/* BUTTON GROUP */
-.controls {
-    display: flex;
-    gap: 5px;
-    margin-top: auto;
-}
-
 /* BUTTONS */
-.controls button,
-.page-btn {
+.controls button, .page-btn {
     padding: 6px;
     font-size: 10px;
     background: rgba(0, 217, 255, 0.22);
@@ -164,24 +121,11 @@ h2 {
     cursor: pointer;
 }
 
-.controls button {
-    flex: 1;
-}
+.controls button { flex: 1; }
+.page-btn { width: 100%; margin-top: 6px; flex-shrink: 0; }
 
-/* PAGE SWITCH BUTTON */
-.page-btn {
-    width: 100%;
-    margin-top: 6px;
-    flex-shrink: 0;
-}
-
-.page-btn:hover,
-.controls button:hover,
-.modal-buttons button:hover,
-.task-actions button:hover,
-.reminder-row button:hover,
-.week-focus-item button:hover,
-.setup-task button:hover {
+.page-btn:hover, .controls button:hover, .modal-buttons button:hover,
+.task-actions button:hover, .week-focus-item button:hover, .setup-task button:hover {
     background: rgba(0, 217, 255, 0.34);
 }
 
@@ -227,13 +171,6 @@ canvas {
     height: 100px;
 }
 
-/* PREVENT SHRINKING OF STATS CONTENT */
-.stat-box,
-.week-focus-item,
-.meal-item {
-    flex-shrink: 0;
-}
-
 /* COMPLETED OVERLAY */
 #completedOverlay {
     display: none;
@@ -244,7 +181,6 @@ canvas {
     background: rgba(3, 10, 22, 0.96);
     box-shadow: 0 0 20px #00d9ff;
     z-index: 20;
-
     flex-direction: column;
     justify-content: center;
     align-items: center;
@@ -262,9 +198,7 @@ canvas {
     color: #b8c7d9;
 }
 
-#addTempBtn {
-    width: 100%;
-}
+#addTempBtn { width: 100%; }
 
 /* MODAL */
 #inputModal {
@@ -286,7 +220,7 @@ canvas {
     box-shadow: 0 0 18px #00d9ff;
 }
 
-.modal-box input {
+.modal-box input, .modal-box select {
     width: 100%;
     box-sizing: border-box;
     padding: 7px;
@@ -298,7 +232,7 @@ canvas {
     outline: none;
 }
 
-.modal-box input:focus {
+.modal-box input:focus, .modal-box select:focus {
     box-shadow: 0 0 8px rgba(70, 234, 255, 0.65);
 }
 
@@ -333,17 +267,14 @@ canvas {
     gap: 6px;
 }
 
-.task-row label {
-    flex: 1;
-}
+.task-row label { flex: 1; }
 
 .task-actions {
     display: flex;
     gap: 3px;
 }
 
-.task-actions button,
-.reminder-row button {
+.task-actions button {
     font-size: 8px;
     padding: 3px 4px;
     background: rgba(0, 217, 255, 0.18);
@@ -353,13 +284,8 @@ canvas {
     cursor: pointer;
 }
 
-.clickable {
-    cursor: pointer;
-}
-
-.clickable:hover {
-    background: rgba(0, 217, 255, 0.18);
-}
+.clickable { cursor: pointer; }
+.clickable:hover { background: rgba(0, 217, 255, 0.18); }
 
 .day-editor-title {
     font-size: 11px;
@@ -389,9 +315,7 @@ canvas {
     padding: 12px;
     border: 1.5px solid #46eaff;
     border-radius: 12px;
-    background:
-        linear-gradient(rgba(3, 10, 22, 0.96), rgba(3, 10, 22, 0.98)),
-        url("solo_ui.png");
+    background: linear-gradient(rgba(3, 10, 22, 0.96), rgba(3, 10, 22, 0.98)), url("solo_ui.png");
     background-size: cover;
     background-position: center;
     box-shadow: 0 0 22px #00d9ff;
@@ -420,7 +344,7 @@ canvas {
     margin: 5px 0;
 }
 
-.setup-task input {
+.setup-task input, .setup-task select {
     flex: 1;
 }
 
@@ -443,10 +367,6 @@ canvas {
     border-radius: 8px;
     background: rgba(0, 217, 255, 0.12);
     box-shadow: 0 0 10px #00d9ff;
-}
-
-#timer {
-    margin-top: auto;
 }
 
 .calorie-left-box p {
@@ -472,12 +392,8 @@ canvas {
 }
 
 /* ELECTRON DRAG FIX */
-#setupOverlay,
-#setupOverlay *,
-#inputModal,
-#inputModal *,
-#modalInput,
-#modalInputCalories {
+#setupOverlay, #setupOverlay *, #inputModal, #inputModal *,
+#modalInput, #modalInputCalories {
     -webkit-app-region: no-drag;
 }
 
@@ -496,7 +412,7 @@ canvas {
     background: rgba(0, 217, 255, 0.34);
 }
 
-#weightHistoryList .task-row {
+#weightHistoryList .task-row, #fatHistoryList .task-row {
     font-size: 10px;
     margin: 3px 0;
     padding: 6px;
@@ -505,67 +421,12 @@ canvas {
     background: rgba(0, 217, 255, 0.08);
 }
 
-#weightHistoryList span {
-    color: white;
-}
-
-#fatHistoryList .task-row {
-    font-size: 10px;
-    margin: 3px 0;
-    padding: 6px;
-    border: 1px solid rgba(70, 234, 255, 0.3);
-    border-radius: 6px;
-    background: rgba(0, 217, 255, 0.08);
-}
-
-#fatHistoryList span {
+#weightHistoryList span, #fatHistoryList span {
     color: white;
 }
 
 .bottom-actions {
     margin-top: auto;
-}
-
-.reminder-row {
-    margin: 5px 0;
-    padding: 6px;
-    border: 1px solid rgba(70, 234, 255, 0.3);
-    border-radius: 6px;
-    background: rgba(0, 217, 255, 0.08);
-}
-
-.reminder-row input,
-.reminder-add-row input {
-    flex: 1;
-    min-width: 0;
-    margin-top: 0;
-}
-
-.reminder-row button,
-.reminder-add-row button {
-    width: auto;
-    margin-top: 0;
-    white-space: nowrap;
-}
-
-.reminder-add-row {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    margin-top: 8px;
-}
-
-.notif-empty,
-#motivationStatus,
-#reminderError {
-    font-size: 10px;
-    color: #b8c7d9;
-}
-
-#reminderError {
-    min-height: 12px;
-    margin: 5px 0 0;
-    color: #ff9b9b;
 }
 
 .calorie-left-box.calorie-over {
@@ -595,7 +456,6 @@ canvas {
     border-radius: 12px;
     background: rgba(20, 3, 3, 0.96);
     box-shadow: 0 0 20px #ff4d4d;
-
     flex-direction: column;
     justify-content: center;
     align-items: center;
@@ -625,6 +485,7 @@ canvas {
     cursor: pointer;
 }
 
+/* REHAB */
 .rehab-option-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -722,26 +583,19 @@ canvas {
     font-size: 14px;
 }
 
-.mobile-web .subtitle,
-.mobile-web #focus,
-.mobile-web .stat-box,
-.mobile-web .week-focus-item,
-.mobile-web .task,
-.mobile-web .meal-item,
+.mobile-web .subtitle, .mobile-web #focus, .mobile-web .stat-box,
+.mobile-web .week-focus-item, .mobile-web .task, .mobile-web .meal-item,
 .mobile-web .rehab-task-preview {
     font-size: 13px;
 }
 
-.mobile-web .page-btn,
-.mobile-web .modal-buttons button,
+.mobile-web .page-btn, .mobile-web .modal-buttons button,
 .mobile-web .rehab-option-btn {
     min-height: 42px;
     font-size: 13px;
 }
 
-.mobile-web .task-actions button,
-.mobile-web .reminder-row button,
-.mobile-web .week-focus-item button,
+.mobile-web .task-actions button, .mobile-web .week-focus-item button,
 .mobile-web .day-editor-title button {
     font-size: 11px;
     padding: 6px 8px;
@@ -751,16 +605,13 @@ canvas {
     width: min(340px, calc(100vw - 48px));
 }
 
-.mobile-web .modal-box input,
-.mobile-web .setup-input {
+.mobile-web .modal-box input, .mobile-web .setup-input {
     min-height: 40px;
     font-size: 16px;
 }
 
-.mobile-web #setupOverlay,
-.mobile-web #inputModal,
-.mobile-web #completedOverlay,
-.mobile-web #calorieDoneOverlay {
+.mobile-web #setupOverlay, .mobile-web #inputModal,
+.mobile-web #completedOverlay, .mobile-web #calorieDoneOverlay {
     position: fixed;
 }
 
@@ -774,7 +625,7 @@ canvas {
     }
 }
 
-/* STRUCTURED EXERCISE TASKS */
+/* EXERCISE TASKS */
 .exercise-task {
     display: flex;
     flex-direction: column;
@@ -803,6 +654,7 @@ canvas {
     box-shadow: 0 0 6px rgba(70, 234, 255, 0.55);
 }
 
+/* CALORIE TOGGLE */
 .calorie-toggle {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -829,25 +681,31 @@ canvas {
     .exercise-fields {
         grid-template-columns: 1fr 1fr;
     }
-
     .exercise-name-input {
         grid-column: span 2;
     }
 }
 
-/* Compact structured exercise setup rows */
+/* SETUP EXERCISE ROWS */
 .setup-exercise-row {
     display: grid;
-    grid-template-columns: 1.5fr 0.65fr 0.65fr 1fr auto;
+    grid-template-columns: 1.5fr 0.65fr 0.65fr 0.65fr 1fr auto;
     gap: 5px;
     align-items: center;
 }
 
-.setup-exercise-row .setup-input {
+.setup-exercise-row .setup-input, .setup-exercise-row .setup-task-unit {
     min-width: 0;
     margin: 3px 0;
     padding: 6px;
     font-size: 9px;
+}
+
+.setup-task-unit {
+    background: rgba(0, 217, 255, 0.1);
+    border: 1px solid #46eaff;
+    border-radius: 6px;
+    color: white;
 }
 
 .setup-exercise-row button {
@@ -858,37 +716,27 @@ canvas {
     .setup-exercise-row {
         grid-template-columns: 1fr 0.65fr 0.65fr auto;
     }
-
     .setup-exercise-row .setup-task-weight {
         grid-column: 1 / -2;
     }
 }
 
-/* v5: keep registration exercise inputs in one clean row */
 .setup-task.setup-exercise-row {
     display: grid !important;
-    grid-template-columns: minmax(0, 1.45fr) 42px 42px minmax(54px, 0.85fr) 24px !important;
+    grid-template-columns: minmax(0, 1.2fr) 55px 70px 55px 70px 24px !important;
     gap: 4px !important;
     align-items: center !important;
     margin: 5px 0 !important;
 }
 
-.setup-task.setup-exercise-row .setup-input {
+.setup-task.setup-exercise-row .setup-input,
+.setup-task.setup-exercise-row .setup-task-unit {
     width: 100% !important;
     min-width: 0 !important;
     box-sizing: border-box !important;
     margin: 0 !important;
     padding: 5px 4px !important;
     font-size: 8.5px !important;
-}
-
-.setup-task.setup-exercise-row .setup-task-reps,
-.setup-task.setup-exercise-row .setup-task-sets {
-    text-align: center;
-}
-
-.setup-task.setup-exercise-row .setup-task-weight {
-    grid-column: auto !important;
 }
 
 .setup-task.setup-exercise-row button {
@@ -903,21 +751,21 @@ canvas {
 
 @media (max-width: 420px) {
     .setup-task.setup-exercise-row {
-        grid-template-columns: minmax(0, 1.35fr) 36px 36px minmax(46px, 0.8fr) 22px !important;
+        grid-template-columns: minmax(0, 1.1fr) 50px 65px 50px 60px 22px !important;
         gap: 3px !important;
     }
-
-    .setup-task.setup-exercise-row .setup-input {
+    .setup-task.setup-exercise-row .setup-input,
+    .setup-task.setup-exercise-row .setup-task-unit {
         font-size: 8px !important;
         padding: 5px 3px !important;
     }
-
     .setup-task.setup-exercise-row button {
         width: 22px !important;
         min-width: 22px !important;
     }
 }
 
+/* CALORIE ACTION ROW */
 .calorie-action-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -928,6 +776,7 @@ canvas {
     margin-top: 6px;
 }
 
+/* FREQUENT MEALS */
 .frequent-meal-row {
     display: flex;
     justify-content: space-between;
@@ -976,23 +825,7 @@ canvas {
     -webkit-overflow-scrolling: touch;
 }
 
-.mini-chart-box::-webkit-scrollbar, .chart-box::-webkit-scrollbar, .canvas-scroll-wrapper::-webkit-scrollbar {
+.mini-chart-box::-webkit-scrollbar, .chart-box::-webkit-scrollbar,
+.canvas-scroll-wrapper::-webkit-scrollbar {
     display: none;
-}
-
-.drag-bar {
-    -webkit-app-region: drag;
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    height: 30px !important;
-    margin-bottom: 10px;
-    border-bottom: 1px solid #46eaff;
-}
-
-/* Ensure no other global styles are hiding buttons */
-.drag-bar button {
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
 }
