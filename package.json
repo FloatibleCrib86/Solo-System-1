@@ -2,6 +2,7 @@
   "name": "solo-system",
   "version": "1.0.0",
   "description": "Solo Leveling fitness tracker",
+  "main": "index.html",
   "scripts": {
     "build": "echo Build complete"
   },
