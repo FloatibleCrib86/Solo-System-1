@@ -2062,8 +2062,31 @@ function toggleMotivationNotifications() {
     const enabled = setupData.motivationEnabled !== false;
     setupData.motivationEnabled = !enabled;
     setStorage("setupData", setupData);
-    if (setupData.motivationEnabled) { ensureMotivationSchedule(true); requestNotificationAccess(); }
+    
     renderMotivationSettings();
+    
+    const notifPage = document.getElementById("notificationsPage");
+    if (notifPage && notifPage.style.display === "flex") {
+        renderNotificationsPage();
+    }
+    
+    const status = enabled ? "disabled" : "enabled";
+    console.log(`Motivation notifications ${status}`);
+    
+    const msg = document.createElement("div");
+    msg.style.position = "fixed";
+    msg.style.bottom = "20px";
+    msg.style.left = "50%";
+    msg.style.transform = "translateX(-50%)";
+    msg.style.backgroundColor = "#46eaff";
+    msg.style.color = "#03101f";
+    msg.style.padding = "8px 16px";
+    msg.style.borderRadius = "8px";
+    msg.style.fontSize = "12px";
+    msg.style.zIndex = "1000";
+    msg.innerText = `Motivation ${setupData.motivationEnabled ? "enabled" : "disabled"}`;
+    document.body.appendChild(msg);
+    setTimeout(() => msg.remove(), 1500);
 }
 
 function getNotificationPermissionLabel() {
@@ -2072,93 +2095,96 @@ function getNotificationPermissionLabel() {
 }
 
 function requestNotificationAccess() {
-    // Check if we're in a WebView/APK
-    if (typeof window.Notification === 'undefined' || !window.Notification) {
-        console.log("Notification API not available - likely in WebView");
-        // Mock successful permission for APK
-        setupData.notificationsSupported = false;
-        setStorage("setupData", setupData);
-        renderMotivationSettings();
-        alert("Notifications: Your device may require additional setup. The app will still work, but reminders may be limited.");
+    console.log("Requesting notification access...");
+    if (!("Notification" in window)) {
+        alert("This browser does not support desktop notifications.");
         return;
     }
     
-    if (!window.isSecureContext && window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
-        alert("Notifications require HTTPS or localhost. On a real device, installed apps should work.");
+    if (typeof Android !== 'undefined' && Android) {
+        console.log("Android WebView detected");
+        alert("Please enable notifications in your device settings for this app.");
+        return;
+    }
+    if (Notification.permission === "granted") {
+        console.log("Notifications already granted");
+        sendAppNotification("Solo System", "✅ Notifications are enabled! You'll receive reminders.");
         renderMotivationSettings();
         return;
     }
-    
-    if (Notification.permission === "default") {
+    if (Notification.permission !== "denied") {
         Notification.requestPermission().then(permission => {
+            console.log("Notification permission result:", permission);
             if (permission === "granted") {
-                console.log("Notifications granted");
+                sendAppNotification("Solo System", "🎉 Notifications enabled! You'll now receive workout reminders.");
                 ensureMotivationSchedule(true);
             } else {
-                console.log("Notifications denied");
+                alert("Notifications denied. You can enable them in your browser/app settings.");
             }
             renderMotivationSettings();
         }).catch(err => {
-            console.error("Notification error:", err);
-            renderMotivationSettings();
+            console.error("Notification request error:", err);
+            alert("Could not request notifications. Please check your settings.");
         });
-        return;
-    }
-    
-    if (Notification.permission === "granted") {
-        ensureMotivationSchedule(true);
-        renderMotivationSettings();
     } else {
         alert("Notifications are blocked. Please enable them in your device settings for this app.");
-        renderMotivationSettings();
     }
 }
 
 async function sendAppNotification(title, body) {
+    console.log("Sending notification:", title, body);
+    
     if (!("Notification" in window)) {
         console.log("Notifications not supported");
-        return;
+        return false;
     }
+    
     if (Notification.permission !== "granted") {
-        console.log("Notification permission not granted, requesting...");
-        const permission = await Notification.requestPermission();
-        if (permission !== "granted") {
-            console.log("Notification permission denied");
-            return;
-        }
+        console.log("Notification permission not granted. Current status:", Notification.permission);
+        return false;
     }
+    
     const options = {
         body: body,
-        icon: "/solo_ui.png",
-        badge: "/solo_ui.png",
+        icon: "solo_ui.png",
+        badge: "solo_ui.png",
         vibrate: [200, 100, 200],
         silent: false,
-        requireInteraction: true
+        requireInteraction: true,
+        tag: "solo_system_" + Date.now(),
+        renotify: true
     };
-    if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
-        try {
+    try {
+        if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
             const registration = await navigator.serviceWorker.ready;
             if (registration && registration.showNotification) {
                 await registration.showNotification(title, options);
                 console.log("Notification sent via service worker");
-                return;
+                return true;
             }
-        } catch (error) {
-            console.log("Service worker notification failed:", error);
         }
-    }
-    try {
+        
         const notification = new Notification(title, options);
         
-        setTimeout(() => notification.close(), 5000);
-        
-        notification.onclick = () => {
+        notification.onclick = function() {
             window.focus();
-            notification.close();
+            this.close();
         };
+        
+        notification.onerror = function(e) {
+            console.error("Notification error:", e);
+        };
+        
+        setTimeout(() => {
+            if (notification.close) notification.close();
+        }, 5000);
+        
         console.log("Notification sent successfully");
+        return true;
+        
     } catch (error) {
-        console.log("Failed to send notification:", error);
+        console.error("Failed to send notification:", error);
+        return false;
     }
 }
 
@@ -2190,18 +2216,41 @@ function wasMotivationTriggered(key) { const triggered = getStorage("triggeredMo
 function markMotivationTriggered(key) { const triggered = getStorage("triggeredMotivationNotifications") || {}; triggered[key] = true; setStorage("triggeredMotivationNotifications", triggered); }
 
 function checkMotivationNotifications(now = new Date()) {
+    if (setupData.motivationEnabled === false) {
+        console.log("Motivation notifications disabled");
+        return;
+    }
+    
+    if (Notification.permission !== "granted") {
+        console.log("Notification permission not granted for motivation");
+        return;
+    }
+    
     const schedule = ensureMotivationSchedule();
-    if (!schedule) return;
+    if (!schedule) {
+        console.log("No motivation schedule found");
+        return;
+    }
+    
     const today = getNotificationDayKey(now);
     const timeStr = getTimeString(now);
-    const minuteKey = `${today}:${timeStr}`;
-    if (lastMotivationCheckMinute === minuteKey) return;
-    lastMotivationCheckMinute = minuteKey;
-    const item = schedule.items.find(entry => entry.time === timeStr);
+    const currentMinute = timeStr.substring(0, 5);
+    
+    if (lastMotivationCheckMinute === currentMinute) return;
+    lastMotivationCheckMinute = currentMinute;
+    
+    const item = schedule.items.find(entry => entry.time === currentMinute);
     if (!item) return;
-    const triggerKey = `${today}:motivation:${timeStr}`;
-    if (wasMotivationTriggered(triggerKey)) return;
-    sendAppNotification("Solo System Alert", motivationalQuotes[item.quoteIndex]);
+    
+    const triggerKey = `${today}:motivation:${currentMinute}`;
+    if (wasMotivationTriggered(triggerKey)) {
+        console.log("Motivation already triggered for:", currentMinute);
+        return;
+    }
+    
+    console.log("MOTIVATION TRIGGERED at:", currentMinute);
+    
+    sendAppNotification("⚡ Solo System Alert", motivationalQuotes[item.quoteIndex]);
     markMotivationTriggered(triggerKey);
 }
 
@@ -2213,18 +2262,27 @@ function resetReminderDayIfNeeded() {
 }
 
 function checkReminderNotifications(now = new Date()) {
-    if (!setupData.reminders || setupData.reminders.length === 0) return;
-    const timeStr = getTimeString(now);
+    if (!setupData.reminders || setupData.reminders.length === 0) {
+        console.log("No reminders set");
+        return;
+    }
     
-    if (setupData.reminders.includes(timeStr) && lastTriggeredReminder !== timeStr) {
-        console.log("Reminder triggered for:", timeStr);
+    const timeStr = getTimeString(now);
+    const currentMinute = timeStr.substring(0, 5); // HH:MM format
+    
+    console.log("Checking reminders at:", currentMinute);
+    console.log("Active reminders:", setupData.reminders);
+    
+    if (setupData.reminders.includes(currentMinute) && lastTriggeredReminder !== currentMinute) {
+        console.log("REMINDER TRIGGERED for:", currentMinute);
         
-        sendAppNotification("Solo System", "⏰ Time to train! Your daily quest awaits. 💪");
+        sendAppNotification("⏰ Solo System", "Time to train! Your daily quest awaits. 💪");
         
-        lastTriggeredReminder = timeStr;
+        lastTriggeredReminder = currentMinute;
         
         setTimeout(() => {
-            if (lastTriggeredReminder === timeStr) {
+            if (lastTriggeredReminder === currentMinute) {
+                console.log("Resetting reminder trigger for:", currentMinute);
                 lastTriggeredReminder = "";
             }
         }, 120000);
@@ -2257,9 +2315,22 @@ function scheduleRandomNotifications() { ensureMotivationSchedule(); checkPhoneN
 let lastMotivationCheckMinute = "";
 let lastReminderCheckDay = getNotificationDayKey(new Date());
 
-setInterval(checkPhoneNotifications, 15000);
-window.addEventListener("focus", checkPhoneNotifications);
-document.addEventListener("visibilitychange", () => { if (!document.hidden) checkPhoneNotifications(); });
+setInterval(() => {
+    if (setupData.complete) {
+        checkPhoneNotifications();
+    }
+}, 10000);
+document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+        console.log("Page became visible, checking notifications");
+        checkPhoneNotifications();
+        if (setupData.complete) {
+            render();
+            renderStatsPage();
+            renderCaloriePage();
+        }
+    }
+});
 ensureMotivationSchedule();
 
 const motivationalQuotes = [
