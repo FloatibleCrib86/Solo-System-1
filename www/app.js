@@ -83,6 +83,35 @@ const defaultWeeklyPlan = {
 let weeklyPlan = getStorage("weeklyPlan") || defaultWeeklyPlan;
 setupData.weeklyPlan = weeklyPlan;
 
+let CapacitorLocalNotifications = null;
+
+// Initialize native notifications
+async function initNativeNotifications() {
+    // Check if running in Capacitor (APK/IPA)
+    if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
+        try {
+            // Dynamically import the plugin
+            const { LocalNotifications } = await import('@capacitor/local-notifications');
+            CapacitorLocalNotifications = LocalNotifications;
+            
+            // Request permissions
+            const perm = await CapacitorLocalNotifications.checkPermissions();
+            if (perm.display !== 'granted') {
+                await CapacitorLocalNotifications.requestPermissions();
+            }
+            console.log("Native notifications initialized");
+            return true;
+        } catch (e) {
+            console.log("Native notifications not available:", e);
+            return false;
+        }
+    }
+    return false;
+}
+
+// Call this when app loads
+initNativeNotifications();
+
 function saveWeeklyPlan() {
     setStorage("weeklyPlan", weeklyPlan);
 }
@@ -2076,6 +2105,9 @@ function toggleMotivationNotifications() {
 }
 
 function getNotificationPermissionLabel() {
+    if (CapacitorLocalNotifications) {
+        return "native (APK)";
+    }
     if (!("Notification" in window)) return "not supported";
     return Notification.permission;
 }
@@ -2083,81 +2115,90 @@ function getNotificationPermissionLabel() {
 function requestNotificationAccess() {
     console.log("Requesting notification access...");
     
+    // For Capacitor native
+    if (CapacitorLocalNotifications) {
+        CapacitorLocalNotifications.requestPermissions().then(perm => {
+            console.log("Native permission result:", perm);
+            if (perm.display === 'granted') {
+                sendAppNotification("Solo System", "✅ Notifications enabled!");
+            }
+            renderMotivationSettings();
+        });
+        return;
+    }
+    
+    // Fallback for web
     if (!("Notification" in window)) {
         alert("This browser does not support notifications.");
         return;
     }
     
     if (Notification.permission === "granted") {
-        console.log("Notifications already granted");
-        sendAppNotification("Solo System", "✅ Notifications are enabled! You'll receive reminders.");
+        sendAppNotification("Solo System", "✅ Notifications enabled!");
         renderMotivationSettings();
         return;
     }
     
     if (Notification.permission !== "denied") {
         Notification.requestPermission().then(permission => {
-            console.log("Notification permission result:", permission);
             if (permission === "granted") {
-                sendAppNotification("Solo System", "🎉 Notifications enabled! You'll now receive workout reminders.");
+                sendAppNotification("Solo System", "🎉 Notifications enabled!");
                 ensureMotivationSchedule(true);
-            } else {
-                alert("Notifications denied. You can enable them in your browser/app settings.");
             }
             renderMotivationSettings();
-        }).catch(err => {
-            console.error("Notification request error:", err);
-            alert("Could not request notifications. Please check your settings.");
         });
     } else {
-        alert("Notifications are blocked. Please enable them in your device settings for this app.");
+        alert("Notifications are blocked. Please enable them in your device settings.");
     }
 }
+
 
 async function sendAppNotification(title, body) {
     console.log("Sending notification:", title, body);
     
+    // Use native notifications if available (for APK/IPA)
+    if (CapacitorLocalNotifications) {
+        try {
+            await CapacitorLocalNotifications.schedule({
+                notifications: [{
+                    title: title,
+                    body: body,
+                    id: Date.now(),
+                    schedule: { at: new Date() },
+                    sound: null,
+                    smallIcon: "ic_stat_icon_config_sample",
+                    iconColor: "#46eaff"
+                }]
+            });
+            console.log("Native notification sent");
+            return true;
+        } catch (e) {
+            console.log("Native notification failed:", e);
+        }
+    }
+    
+    // Fallback to web notifications (for browser testing)
     if (!("Notification" in window)) {
-        console.log("Notifications not supported");
+        console.log("Web notifications not supported");
         return false;
     }
     
     if (Notification.permission !== "granted") {
-        console.log("Notification permission not granted. Current status:", Notification.permission);
+        console.log("Web notification permission not granted");
         return false;
     }
     
-    const options = {
-        body: body,
-        icon: "solo_ui.png",
-        badge: "solo_ui.png",
-        vibrate: [200, 100, 200],
-        silent: false,
-        requireInteraction: true,
-        tag: "solo_system_" + Date.now(),
-        renotify: true
-    };
-    
     try {
-        if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
-            const registration = await navigator.serviceWorker.ready;
-            if (registration && registration.showNotification) {
-                await registration.showNotification(title, options);
-                console.log("Notification sent via service worker");
-                return true;
-            }
-        }
-        
-        const notification = new Notification(title, options);
-        notification.onclick = function() { window.focus(); this.close(); };
-        setTimeout(() => { if (notification.close) notification.close(); }, 5000);
-        console.log("Notification sent successfully");
+        const notification = new Notification(title, { body: body });
+        setTimeout(() => notification.close(), 5000);
+        console.log("Web notification sent");
         return true;
     } catch (error) {
         console.error("Failed to send notification:", error);
         return false;
     }
 }
+
 
 function ensureMotivationSchedule(forceNew = false) {
     if (setupData.motivationEnabled === false) return null;
