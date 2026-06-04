@@ -1,8 +1,7 @@
 {
   "appId": "com.solosystem.app",
   "appName": "Solo System",
-  "webDir": ".",
-  "bundledWebRuntime": false,
+  "webDir": "www",
   "server": {
     "androidScheme": "https"
   },

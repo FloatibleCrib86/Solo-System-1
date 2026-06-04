@@ -10,10 +10,13 @@ workflows:
           npm install -g @capacitor/cli
           npm install @capacitor/core @capacitor/android
       
-      - name: Initialize and Build
+      - name: Clean and Build
         script: |
-          # Initialize with webDir = . (root folder)
-          npx cap init "Solo System" "com.solosystem.app" --web-dir=.
+          # Remove existing android folder if it exists
+          rm -rf android
+          
+          # Initialize with webDir = www
+          npx cap init "Solo System" "com.solosystem.app" --web-dir=www
           npx cap add android
           npx cap copy
           npx cap sync
@@ -40,9 +43,12 @@ workflows:
           npm install -g @capacitor/cli
           npm install @capacitor/core @capacitor/ios
       
-      - name: Initialize and Build
+      - name: Clean and Build
         script: |
-          npx cap init "Solo System" "com.solosystem.app" --web-dir=.
+          # Remove existing ios folder if it exists
+          rm -rf ios
+          
+          npx cap init "Solo System" "com.solosystem.app" --web-dir=www
           npx cap add ios
           npx cap copy
           npx cap sync
