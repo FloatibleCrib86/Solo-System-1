@@ -1,0 +1,24 @@
+{
+  "name": "Solo System Public Mobile",
+  "short_name": "Solo System",
+  "start_url": "/Solo-System/index.html",
+  "display": "standalone",
+  "background_color": "#03101f",
+  "theme_color": "#03101f",
+  "orientation": "portrait",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "solo_ui.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "solo_ui.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
