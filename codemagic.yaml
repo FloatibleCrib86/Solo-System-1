@@ -9,14 +9,12 @@ workflows:
       - name: Install dependencies
         script: |
           npm install -g @capacitor/cli
-          npm install @capacitor/core @capacitor/android @capacitor/push-notifications
-      
+          npm install @capacitor/core @capacitor/android
       - name: Setup Capacitor
         script: |
           npx cap init "Solo System" "com.solosystem.app"
           npx cap add android
           npx cap sync android
-      
       - name: Build APK
         script: |
           cd android
@@ -40,13 +38,11 @@ workflows:
         script: |
           npm install -g @capacitor/cli
           npm install @capacitor/core @capacitor/ios
-      
       - name: Setup Capacitor
         script: |
           npx cap init "Solo System" "com.solosystem.app"
           npx cap add ios
           npx cap sync ios
-      
       - name: Build iOS
         script: |
           cd ios/App
