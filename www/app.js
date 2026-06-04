@@ -2019,7 +2019,8 @@ function addWorkoutReminder() {
         successMsg.style.fontSize = "10px";
         successMsg.style.marginTop = "5px";
         successMsg.innerText = `✅ Reminder set for ${timeInput.value}`;
-        document.querySelector(".reminder-add-row").appendChild(successMsg);
+        const addRow = document.querySelector(".reminder-add-row");
+        if (addRow) addRow.appendChild(successMsg);
         setTimeout(() => successMsg.remove(), 2000);
         if (Notification.permission === "default") {
             requestNotificationAccess();
@@ -2070,23 +2071,7 @@ function toggleMotivationNotifications() {
         renderNotificationsPage();
     }
     
-    const status = enabled ? "disabled" : "enabled";
-    console.log(`Motivation notifications ${status}`);
-    
-    const msg = document.createElement("div");
-    msg.style.position = "fixed";
-    msg.style.bottom = "20px";
-    msg.style.left = "50%";
-    msg.style.transform = "translateX(-50%)";
-    msg.style.backgroundColor = "#46eaff";
-    msg.style.color = "#03101f";
-    msg.style.padding = "8px 16px";
-    msg.style.borderRadius = "8px";
-    msg.style.fontSize = "12px";
-    msg.style.zIndex = "1000";
-    msg.innerText = `Motivation ${setupData.motivationEnabled ? "enabled" : "disabled"}`;
-    document.body.appendChild(msg);
-    setTimeout(() => msg.remove(), 1500);
+    console.log(`Motivation notifications ${setupData.motivationEnabled ? "enabled" : "disabled"}`);
 }
 
 function getNotificationPermissionLabel() {
@@ -2096,22 +2081,19 @@ function getNotificationPermissionLabel() {
 
 function requestNotificationAccess() {
     console.log("Requesting notification access...");
+    
     if (!("Notification" in window)) {
-        alert("This browser does not support desktop notifications.");
+        alert("This browser does not support notifications.");
         return;
     }
     
-    if (typeof Android !== 'undefined' && Android) {
-        console.log("Android WebView detected");
-        alert("Please enable notifications in your device settings for this app.");
-        return;
-    }
     if (Notification.permission === "granted") {
         console.log("Notifications already granted");
         sendAppNotification("Solo System", "✅ Notifications are enabled! You'll receive reminders.");
         renderMotivationSettings();
         return;
     }
+    
     if (Notification.permission !== "denied") {
         Notification.requestPermission().then(permission => {
             console.log("Notification permission result:", permission);
@@ -2154,6 +2136,7 @@ async function sendAppNotification(title, body) {
         tag: "solo_system_" + Date.now(),
         renotify: true
     };
+    
     try {
         if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
             const registration = await navigator.serviceWorker.ready;
@@ -2197,10 +2180,16 @@ function ensureMotivationSchedule(forceNew = false) {
     const times = new Set();
     const usedQuotes = new Set();
     const items = [];
-    while (times.size < count) { const hour = Math.floor(Math.random() * 12) + 8; const minute = Math.floor(Math.random() * 60); times.add(hour.toString().padStart(2, "0") + ":" + minute.toString().padStart(2, "0")); }
+    while (times.size < count) { 
+        const hour = Math.floor(Math.random() * 12) + 8; 
+        const minute = Math.floor(Math.random() * 60); 
+        times.add(hour.toString().padStart(2, "0") + ":" + minute.toString().padStart(2, "0")); 
+    }
     [...times].sort().forEach(time => {
         let quoteIndex;
-        do { quoteIndex = Math.floor(Math.random() * motivationalQuotes.length); } while (usedQuotes.has(quoteIndex) && usedQuotes.size < motivationalQuotes.length);
+        do { 
+            quoteIndex = Math.floor(Math.random() * motivationalQuotes.length); 
+        } while (usedQuotes.has(quoteIndex) && usedQuotes.size < motivationalQuotes.length);
         usedQuotes.add(quoteIndex);
         items.push({ time, quoteIndex });
     });
@@ -2210,27 +2199,31 @@ function ensureMotivationSchedule(forceNew = false) {
     return schedule;
 }
 
-function getNotificationDayKey(date = new Date()) { return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"); }
-function getTimeString(date = new Date()) { return date.getHours().toString().padStart(2, "0") + ":" + date.getMinutes().toString().padStart(2, "0"); }
-function wasMotivationTriggered(key) { const triggered = getStorage("triggeredMotivationNotifications") || {}; return !!triggered[key]; }
-function markMotivationTriggered(key) { const triggered = getStorage("triggeredMotivationNotifications") || {}; triggered[key] = true; setStorage("triggeredMotivationNotifications", triggered); }
+function getNotificationDayKey(date = new Date()) { 
+    return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"); 
+}
+
+function getTimeString(date = new Date()) { 
+    return date.getHours().toString().padStart(2, "0") + ":" + date.getMinutes().toString().padStart(2, "0"); 
+}
+
+function wasMotivationTriggered(key) { 
+    const triggered = getStorage("triggeredMotivationNotifications") || {}; 
+    return !!triggered[key]; 
+}
+
+function markMotivationTriggered(key) { 
+    const triggered = getStorage("triggeredMotivationNotifications") || {}; 
+    triggered[key] = true; 
+    setStorage("triggeredMotivationNotifications", triggered); 
+}
 
 function checkMotivationNotifications(now = new Date()) {
-    if (setupData.motivationEnabled === false) {
-        console.log("Motivation notifications disabled");
-        return;
-    }
-    
-    if (Notification.permission !== "granted") {
-        console.log("Notification permission not granted for motivation");
-        return;
-    }
+    if (setupData.motivationEnabled === false) return;
+    if (Notification.permission !== "granted") return;
     
     const schedule = ensureMotivationSchedule();
-    if (!schedule) {
-        console.log("No motivation schedule found");
-        return;
-    }
+    if (!schedule) return;
     
     const today = getNotificationDayKey(now);
     const timeStr = getTimeString(now);
@@ -2243,13 +2236,9 @@ function checkMotivationNotifications(now = new Date()) {
     if (!item) return;
     
     const triggerKey = `${today}:motivation:${currentMinute}`;
-    if (wasMotivationTriggered(triggerKey)) {
-        console.log("Motivation already triggered for:", currentMinute);
-        return;
-    }
+    if (wasMotivationTriggered(triggerKey)) return;
     
     console.log("MOTIVATION TRIGGERED at:", currentMinute);
-    
     sendAppNotification("⚡ Solo System Alert", motivationalQuotes[item.quoteIndex]);
     markMotivationTriggered(triggerKey);
 }
@@ -2262,75 +2251,64 @@ function resetReminderDayIfNeeded() {
 }
 
 function checkReminderNotifications(now = new Date()) {
-    if (!setupData.reminders || setupData.reminders.length === 0) {
-        console.log("No reminders set");
-        return;
-    }
+    if (!setupData.reminders || setupData.reminders.length === 0) return;
     
     const timeStr = getTimeString(now);
-    const currentMinute = timeStr.substring(0, 5); // HH:MM format
-    
-    console.log("Checking reminders at:", currentMinute);
-    console.log("Active reminders:", setupData.reminders);
+    const currentMinute = timeStr.substring(0, 5);
     
     if (setupData.reminders.includes(currentMinute) && lastTriggeredReminder !== currentMinute) {
         console.log("REMINDER TRIGGERED for:", currentMinute);
-        
         sendAppNotification("⏰ Solo System", "Time to train! Your daily quest awaits. 💪");
-        
         lastTriggeredReminder = currentMinute;
         
         setTimeout(() => {
             if (lastTriggeredReminder === currentMinute) {
-                console.log("Resetting reminder trigger for:", currentMinute);
                 lastTriggeredReminder = "";
             }
         }, 120000);
     }
 }
 
-// Set up a more reliable notification checker
-let notificationInterval = null;
-
-function startNotificationChecker() {
-    // Clear existing interval
-    if (notificationInterval) {
-        clearInterval(notificationInterval);
-    }
-    
-    // Check every 10 seconds instead of 15
-    notificationInterval = setInterval(() => {
-        checkPhoneNotifications();
-    }, 10000);
-    
-    console.log("Notification checker started");
+function checkPhoneNotifications() { 
+    resetReminderDayIfNeeded(); 
+    checkReminderNotifications(); 
+    checkMotivationNotifications(); 
 }
-
-// Call this when the app loads
-startNotificationChecker();
-
-function checkPhoneNotifications() { resetReminderDayIfNeeded(); checkReminderNotifications(); checkMotivationNotifications(); }
-function scheduleRandomNotifications() { ensureMotivationSchedule(); checkPhoneNotifications(); }
 
 let lastMotivationCheckMinute = "";
 let lastReminderCheckDay = getNotificationDayKey(new Date());
 
+// Check for notifications every 10 seconds
 setInterval(() => {
     if (setupData.complete) {
         checkPhoneNotifications();
     }
 }, 10000);
+
+// Check when page gets focus
+window.addEventListener("focus", () => {
+    console.log("Window focused, checking notifications");
+    if (setupData.complete) {
+        checkPhoneNotifications();
+        render();
+        renderStatsPage();
+        renderCaloriePage();
+    }
+});
+
+// Check when page becomes visible again
 document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
         console.log("Page became visible, checking notifications");
-        checkPhoneNotifications();
         if (setupData.complete) {
+            checkPhoneNotifications();
             render();
             renderStatsPage();
             renderCaloriePage();
         }
     }
 });
+
 ensureMotivationSchedule();
 
 const motivationalQuotes = [
