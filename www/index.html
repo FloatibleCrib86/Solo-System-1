@@ -8,6 +8,13 @@
     <link rel="manifest" href="manifest.json" />
     <link rel="stylesheet" href="style.css" />
     <script>
+        // Request notification permission as early as possible
+        document.addEventListener('DOMContentLoaded', function() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+        });
+        
         // Detect if running in Capacitor native environment
         window.isNative = false;
         document.addEventListener('deviceready', function() {
@@ -243,6 +250,17 @@
                 });
             });
         }
+        
+        // Request notification permission on first app launch
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                if ('Notification' in window && Notification.permission === 'default') {
+                    Notification.requestPermission().then(function(permission) {
+                        console.log("Initial notification permission:", permission);
+                    });
+                }
+            }, 2000);
+        });
     </script>
 </body>
 </html>
