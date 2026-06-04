@@ -7,15 +7,26 @@ workflows:
     scripts:
       - name: Install dependencies
         script: |
-          npm install
           npm install -g @capacitor/cli
+          npm install @capacitor/core @capacitor/android
       
       - name: Initialize Capacitor
         script: |
-          # Create a clean android project
-          npx cap init "Solo System" "com.solosystem.app" --web-dir=.
+          # Create capacitor config
+          cat > capacitor.config.json << EOF
+          {
+            "appId": "com.solosystem.app",
+            "appName": "Solo System",
+            "webDir": "src",
+            "bundledWebRuntime": false
+          }
+          EOF
+          
+          # Initialize and add Android
+          npx cap init "Solo System" "com.solosystem.app"
           npx cap add android
-          npx cap sync android
+          npx cap copy
+          npx cap sync
       
       - name: Build APK
         script: |
@@ -27,7 +38,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - your-email@gmail.com
+          - chetwinchli@gmail.com
 
   ios-build:
     name: iOS IPA
@@ -37,14 +48,26 @@ workflows:
     scripts:
       - name: Install dependencies
         script: |
-          npm install
           npm install -g @capacitor/cli
+          npm install @capacitor/core @capacitor/ios
       
       - name: Initialize Capacitor
         script: |
-          npx cap init "Solo System" "com.solosystem.app" --web-dir=.
+          # Create capacitor config
+          cat > capacitor.config.json << EOF
+          {
+            "appId": "com.solosystem.app",
+            "appName": "Solo System",
+            "webDir": "src",
+            "bundledWebRuntime": false
+          }
+          EOF
+          
+          # Initialize and add iOS
+          npx cap init "Solo System" "com.solosystem.app"
           npx cap add ios
-          npx cap sync ios
+          npx cap copy
+          npx cap sync
       
       - name: Build iOS
         script: |
