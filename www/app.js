@@ -1204,6 +1204,13 @@ function fillExerciseModal(task = {}) {
     if (unitSelect) {
         unitSelect.style.display = "block";
         unitSelect.value = t.unit || "reps";
+        // Make sure options are correct
+        unitSelect.innerHTML = `
+            <option value="reps">Reps</option>
+            <option value="seconds">Seconds</option>
+            <option value="minutes">Minutes</option>
+            <option value="hours">Hours</option>
+        `;
     }
     
     if (setsInput) {
