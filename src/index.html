@@ -261,11 +261,34 @@
 
     </div>
 
-    <script src="app.js"></script>
+    <!-- Notification Fallback for APK/WebView -->
     <script>
-        if ("serviceWorker" in navigator) {
-            window.addEventListener("load", () => navigator.serviceWorker.register("service-worker.js"));
-        }
+        (function() {
+            // Create fallback for WebView/APK environments where Notification API might not exist
+            if (typeof window.Notification === 'undefined' || !window.Notification) {
+                console.log('Creating Notification fallback for APK/WebView');
+                window.Notification = {
+                    permission: 'granted',
+                    requestPermission: function(callback) {
+                        if (typeof callback === 'function') {
+                            callback('granted');
+                        }
+                        return Promise.resolve('granted');
+                    }
+                };
+            }
+            
+            // Also check if service worker is supported
+            if ("serviceWorker" in navigator) {
+                window.addEventListener("load", () => {
+                    navigator.serviceWorker.register("service-worker.js").catch(err => {
+                        console.log("Service worker registration failed:", err);
+                    });
+                });
+            }
+        })();
     </script>
+    
+    <script src="app.js"></script>
 </body>
 </html>
