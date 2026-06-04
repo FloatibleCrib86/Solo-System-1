@@ -829,3 +829,40 @@ canvas {
 .canvas-scroll-wrapper::-webkit-scrollbar {
     display: none;
 }
+
+/* Fix for unit selector dropdown in modals */
+#modalInputUnit {
+    display: none;
+    width: 100%;
+    margin-top: 8px;
+    padding: 7px;
+    background: rgba(0, 217, 255, 0.1);
+    border: 1px solid #46eaff;
+    border-radius: 6px;
+    color: white;
+    font-size: 10px;
+    cursor: pointer;
+}
+
+#modalInputUnit option {
+    background: #03101f;
+    color: white;
+}
+
+/* Fix for the exercise modal layout */
+.modal-box select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 7px;
+    margin-top: 8px;
+    background: rgba(0, 217, 255, 0.1);
+    border: 1px solid #46eaff;
+    border-radius: 6px;
+    color: white;
+    outline: none;
+    font-size: 10px;
+}
+
+.modal-box select:focus {
+    box-shadow: 0 0 8px rgba(70, 234, 255, 0.65);
+}
