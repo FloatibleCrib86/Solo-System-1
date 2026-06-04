@@ -7,32 +7,13 @@
     <meta name="theme-color" content="#03101f" />
     <link rel="manifest" href="manifest.json" />
     <link rel="stylesheet" href="style.css" />
-    <script>
-        window.Capacitor = window.Capacitor || {};
-        document.addEventListener('DOMContentLoaded', function() {
-            if ('Notification' in window && Notification.permission === 'default') {
-                Notification.requestPermission();
-            }
-        });
-        window.isNative = false;
-        document.addEventListener('deviceready', function() {
-            window.isNative = true;
-            console.log("Running in Capacitor native environment");
-        }, false);
-    </script>
 </head>
 
 <body class="mobile-web">
     <div class="panel">
 
         <div class="drag-bar" style="-webkit-app-region: drag; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; height: 30px; box-sizing: border-box;">
-            <button onclick="openNotificationSettings()" style="-webkit-app-region: no-drag; background: none; border: none; cursor: pointer; color: #46eaff; font-size: 18px; padding: 0; z-index: 100;">
-                🔔
-            </button>
-            <span style="font-size: 10px; color: #74f3ff; letter-spacing: 1px; pointer-events: none;">DAILY QUEST SYSTEM</span>
-            <button onclick="window.close()" style="-webkit-app-region: no-drag; background: none; border: none; cursor: pointer; color: #46eaff; font-size: 18px; padding: 0; z-index: 100;">
-                ×
-            </button>
+            <span style="font-size: 10px; color: #74f3ff; letter-spacing: 1px; pointer-events: none; margin: 0 auto;">DAILY QUEST SYSTEM</span>
         </div>
 
         <section id="setupOverlay">
@@ -205,6 +186,12 @@
                 <input id="modalInputReps" type="number" />
                 <input id="modalInputSets" type="number" />
                 <input id="modalInputWeight" type="text" />
+                <select id="modalInputUnit" style="display: none; width: 100%; margin-top: 8px; padding: 7px; background: rgba(0,217,255,0.1); border: 1px solid #46eaff; border-radius: 6px; color: white;">
+                    <option value="reps">Reps</option>
+                    <option value="seconds">Seconds</option>
+                    <option value="minutes">Minutes</option>
+                    <option value="hours">Hours</option>
+                </select>
                 <input id="modalProtein" class="macro-input" type="number" placeholder="Protein (g)" />
                 <input id="modalCarbs" class="macro-input" type="number" placeholder="Carbs (g)" />
                 <input id="modalFat" class="macro-input" type="number" placeholder="Fat (g)" />
@@ -215,27 +202,6 @@
                 </div>
             </div>
         </div>
-
-        <section id="notificationsPage">
-            <h1>NOTIFICATIONS</h1>
-            <p class="subtitle">Set training reminders and daily motivation.</p>
-            <div class="stat-box">
-                <h2>Start Reminders</h2>
-                <div id="reminderList"></div>
-                <div class="reminder-add-row">
-                    <input id="newReminderTime" class="setup-input" type="time">
-                    <button class="page-btn" onclick="addWorkoutReminder()">+ Add</button>
-                </div>
-                <p id="reminderError"></p>
-            </div>
-            <div class="stat-box">
-                <h2>Motivation</h2>
-                <p id="motivationStatus"></p>
-                <button id="motivationToggleBtn" class="page-btn" onclick="toggleMotivationNotifications()">Disable</button>
-            </div>
-            <button class="page-btn" onclick="requestNotificationAccess()">Allow Notifications</button>
-            <button class="page-btn" onclick="closeNotificationsPage()">Back to Tasks</button>
-        </section>
 
     </div>
 
@@ -248,17 +214,6 @@
                 });
             });
         }
-        
-        // Request notification permission on first app launch
-        window.addEventListener('load', function() {
-            setTimeout(function() {
-                if ('Notification' in window && Notification.permission === 'default') {
-                    Notification.requestPermission().then(function(permission) {
-                        console.log("Initial notification permission:", permission);
-                    });
-                }
-            }, 2000);
-        });
     </script>
 </body>
 </html>
