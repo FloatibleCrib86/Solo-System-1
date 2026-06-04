@@ -5,23 +5,18 @@ workflows:
     environment:
       node: 18
     scripts:
-      - name: Install Capacitor
+      - name: Install Capacitor with Local Notifications
         script: |
           npm install -g @capacitor/cli
-          npm install @capacitor/core @capacitor/android
+          npm install @capacitor/core @capacitor/android @capacitor/local-notifications
       
       - name: Build Android APK
         script: |
-          # Clean previous builds
           rm -rf android
-          
-          # Initialize Capacitor
           npx cap init "Solo System" "com.solosystem.app"
           npx cap add android
           npx cap sync
           npx cap copy
-          
-          # Build the APK
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
@@ -38,23 +33,18 @@ workflows:
     environment:
       node: 18
     scripts:
-      - name: Install Capacitor
+      - name: Install Capacitor with Local Notifications
         script: |
           npm install -g @capacitor/cli
-          npm install @capacitor/core @capacitor/ios
+          npm install @capacitor/core @capacitor/ios @capacitor/local-notifications
       
       - name: Build iOS IPA
         script: |
-          # Clean previous builds
           rm -rf ios
-          
-          # Initialize Capacitor
           npx cap init "Solo System" "com.solosystem.app"
           npx cap add ios
           npx cap sync
           npx cap copy
-          
-          # Build the IPA
           cd ios/App
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Release build
     artifacts:
