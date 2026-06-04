@@ -2056,11 +2056,46 @@ function getNotificationPermissionLabel() {
 }
 
 function requestNotificationAccess() {
-    if (!("Notification" in window)) { alert("This browser does not support notifications."); return; }
-    if (!window.isSecureContext) { alert("Notifications need the app to be opened from HTTPS, localhost, or as an installed phone app."); renderMotivationSettings(); return; }
-    if (Notification.permission === "default") { Notification.requestPermission().then(() => { ensureMotivationSchedule(true); renderMotivationSettings(); }); return; }
-    if (Notification.permission === "granted") { ensureMotivationSchedule(true); renderMotivationSettings(); }
-    else { alert("Notifications are blocked. Please enable them in your browser/app settings."); renderMotivationSettings(); }
+    // Check if we're in a WebView/APK
+    if (typeof window.Notification === 'undefined' || !window.Notification) {
+        console.log("Notification API not available - likely in WebView");
+        // Mock successful permission for APK
+        setupData.notificationsSupported = false;
+        setStorage("setupData", setupData);
+        renderMotivationSettings();
+        alert("Notifications: Your device may require additional setup. The app will still work, but reminders may be limited.");
+        return;
+    }
+    
+    if (!window.isSecureContext && window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+        alert("Notifications require HTTPS or localhost. On a real device, installed apps should work.");
+        renderMotivationSettings();
+        return;
+    }
+    
+    if (Notification.permission === "default") {
+        Notification.requestPermission().then(permission => {
+            if (permission === "granted") {
+                console.log("Notifications granted");
+                ensureMotivationSchedule(true);
+            } else {
+                console.log("Notifications denied");
+            }
+            renderMotivationSettings();
+        }).catch(err => {
+            console.error("Notification error:", err);
+            renderMotivationSettings();
+        });
+        return;
+    }
+    
+    if (Notification.permission === "granted") {
+        ensureMotivationSchedule(true);
+        renderMotivationSettings();
+    } else {
+        alert("Notifications are blocked. Please enable them in your device settings for this app.");
+        renderMotivationSettings();
+    }
 }
 
 async function sendAppNotification(title, body) {
