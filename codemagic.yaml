@@ -10,31 +10,18 @@ workflows:
           npm install -g @capacitor/cli
           npm install @capacitor/core @capacitor/android
       
-      - name: Create Capacitor Project
+      - name: Build Android APK
         script: |
-          # Create a fresh capacitor project in a temp directory
-          mkdir -p temp_project
-          cd temp_project
-          npx cap init "Solo System" "com.solosystem.app" --web-dir=../www
+          # Clean previous builds
+          rm -rf android
+          
+          # Initialize Capacitor
+          npx cap init "Solo System" "com.solosystem.app"
           npx cap add android
-          # Copy the android folder back to main directory
-          cp -r android ../
-          cd ..
-          rm -rf temp_project
-      
-      - name: Copy Web Files
-        script: |
-          # Ensure the web files are in the right place
-          mkdir -p android/app/src/main/assets/public
-          cp -r www/* android/app/src/main/assets/public/
-      
-      - name: Sync Capacitor
-        script: |
           npx cap sync
           npx cap copy
-      
-      - name: Build APK
-        script: |
+          
+          # Build the APK
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
@@ -56,28 +43,18 @@ workflows:
           npm install -g @capacitor/cli
           npm install @capacitor/core @capacitor/ios
       
-      - name: Create Capacitor Project
+      - name: Build iOS IPA
         script: |
-          mkdir -p temp_project
-          cd temp_project
-          npx cap init "Solo System" "com.solosystem.app" --web-dir=../www
+          # Clean previous builds
+          rm -rf ios
+          
+          # Initialize Capacitor
+          npx cap init "Solo System" "com.solosystem.app"
           npx cap add ios
-          cp -r ios ../
-          cd ..
-          rm -rf temp_project
-      
-      - name: Copy Web Files
-        script: |
-          mkdir -p ios/App/public
-          cp -r www/* ios/App/public/
-      
-      - name: Sync Capacitor
-        script: |
           npx cap sync
           npx cap copy
-      
-      - name: Build iOS
-        script: |
+          
+          # Build the IPA
           cd ios/App
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Release build
     artifacts:
