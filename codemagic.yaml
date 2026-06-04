@@ -1,0 +1,48 @@
+workflows:
+  android-build:
+    name: Android APK
+    instance_type: mac_mini_m1
+    scripts:
+      - name: Install dependencies
+        script: |
+          npm install
+          npm install -g @capacitor/cli
+      - name: Setup Capacitor
+        script: |
+          npx cap init "Solo System" "com.solosystem.app"
+          npx cap add android
+          npx cap copy
+      - name: Build APK
+        script: |
+          cd android
+          ./gradlew assembleDebug
+    artifacts:
+      - android/app/build/outputs/apk/debug/*.apk
+    publishing:
+      email:
+        recipients:
+          - your-email@gmail.com
+
+  ios-build:
+    name: iOS IPA
+    instance_type: mac_mini_m1
+    scripts:
+      - name: Install dependencies
+        script: |
+          npm install
+          npm install -g @capacitor/cli
+      - name: Setup Capacitor
+        script: |
+          npx cap init "Solo System" "com.solosystem.app"
+          npx cap add ios
+          npx cap copy
+      - name: Build iOS
+        script: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release build
+    artifacts:
+      - ios/App/build/Release-iphoneos/*.ipa
+    publishing:
+      email:
+        recipients:
+          - your-email@gmail.com
