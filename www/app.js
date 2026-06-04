@@ -14,7 +14,6 @@ window.soloStorageFallback = window.soloStorageFallback || {};
 
 function getStorage(key) {
     const storageKey = STORAGE_PREFIX + key;
-
     try {
         const value = localStorage.getItem(storageKey);
         return value ? JSON.parse(value) : null;
@@ -25,7 +24,6 @@ function getStorage(key) {
 
 function setStorage(key, value) {
     const storageKey = STORAGE_PREFIX + key;
-
     try {
         localStorage.setItem(storageKey, JSON.stringify(value));
     } catch (error) {
@@ -49,15 +47,7 @@ let modalMode = null;
 let setupStep = 0;
 let calorieViewMode = "daily";
 
-const setupDays = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday"
-];
+const setupDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 let setupData = getStorage("setupData") || {
     complete: false,
@@ -82,35 +72,6 @@ const defaultWeeklyPlan = {
 
 let weeklyPlan = getStorage("weeklyPlan") || defaultWeeklyPlan;
 setupData.weeklyPlan = weeklyPlan;
-
-let CapacitorLocalNotifications = null;
-
-// Initialize native notifications
-async function initNativeNotifications() {
-    // Check if running in Capacitor (APK/IPA)
-    if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
-        try {
-            // Dynamically import the plugin
-            const { LocalNotifications } = await import('@capacitor/local-notifications');
-            CapacitorLocalNotifications = LocalNotifications;
-            
-            // Request permissions
-            const perm = await CapacitorLocalNotifications.checkPermissions();
-            if (perm.display !== 'granted') {
-                await CapacitorLocalNotifications.requestPermissions();
-            }
-            console.log("Native notifications initialized");
-            return true;
-        } catch (e) {
-            console.log("Native notifications not available:", e);
-            return false;
-        }
-    }
-    return false;
-}
-
-// Call this when app loads
-initNativeNotifications();
 
 function saveWeeklyPlan() {
     setStorage("weeklyPlan", weeklyPlan);
@@ -140,10 +101,6 @@ function getCurrentWeight() {
 function getCurrentBodyFat() {
     const latest = data?.fatHistory?.at(-1);
     return latest ? Number(latest.bodyFat) : Number(setupData.bodyFat) || 0;
-}
-
-function getEstimatedBodyFat() {
-    return Number(setupData.bodyFat) || 22;
 }
 
 function getTargetBodyFat() {
@@ -324,9 +281,15 @@ function renderSetupStep() {
         row.className = "setup-task setup-exercise-row";
         row.innerHTML = `
             <input class="setup-input setup-task-name" value="${escapeHtml(t.name === "Exercise" ? "" : t.name)}" placeholder="Exercise name">
-            <input class="setup-input setup-task-reps" type="number" min="0" value="${escapeHtml(t.reps)}" placeholder="Reps">
+            <input class="setup-input setup-task-value" type="number" min="0" value="${escapeHtml(t.value)}" placeholder="Value">
+            <select class="setup-input setup-task-unit">
+                <option value="reps" ${t.unit === "reps" ? "selected" : ""}>Reps</option>
+                <option value="seconds" ${t.unit === "seconds" ? "selected" : ""}>Seconds</option>
+                <option value="minutes" ${t.unit === "minutes" ? "selected" : ""}>Minutes</option>
+                <option value="hours" ${t.unit === "hours" ? "selected" : ""}>Hours</option>
+            </select>
             <input class="setup-input setup-task-sets" type="number" min="0" value="${escapeHtml(t.sets)}" placeholder="Sets">
-            <input class="setup-input setup-task-weight" value="${escapeHtml(t.weight)}" placeholder="Weight optional">
+            <input class="setup-input setup-task-weight" value="${escapeHtml(t.weight)}" placeholder="Weight">
             <button onclick="this.parentElement.remove()">×</button>
         `;
         list.appendChild(row);
@@ -354,7 +317,8 @@ function saveCurrentSetupStep() {
     const tasks = taskRows
         .map(row => createExerciseTask(
             row.querySelector(".setup-task-name")?.value.trim() || "",
-            row.querySelector(".setup-task-reps")?.value.trim() || "",
+            row.querySelector(".setup-task-value")?.value.trim() || "",
+            row.querySelector(".setup-task-unit")?.value || "reps",
             row.querySelector(".setup-task-sets")?.value.trim() || "",
             row.querySelector(".setup-task-weight")?.value.trim() || ""
         ))
@@ -437,9 +401,15 @@ function addSetupTaskInput() {
     row.className = "setup-task setup-exercise-row";
     row.innerHTML = `
         <input class="setup-input setup-task-name" placeholder="Exercise name">
-        <input class="setup-input setup-task-reps" type="number" min="0" placeholder="Reps">
+        <input class="setup-input setup-task-value" type="number" min="0" placeholder="Value">
+        <select class="setup-input setup-task-unit">
+            <option value="reps">Reps</option>
+            <option value="seconds">Seconds</option>
+            <option value="minutes">Minutes</option>
+            <option value="hours">Hours</option>
+        </select>
         <input class="setup-input setup-task-sets" type="number" min="0" placeholder="Sets">
-        <input class="setup-input setup-task-weight" placeholder="Weight optional">
+        <input class="setup-input setup-task-weight" placeholder="Weight">
         <button onclick="this.parentElement.remove()">×</button>
     `;
     list.appendChild(row);
@@ -508,8 +478,8 @@ function checkNewDay() {
     }
 }
 
-function createExerciseTask(name = "", reps = "", sets = "", weight = "") {
-    return { id: makeId(), name, reps, sets, weight };
+function createExerciseTask(name = "", value = "", unit = "reps", sets = "", weight = "") {
+    return { id: makeId(), name, value, unit, sets, weight };
 }
 
 function escapeHtml(value = "") {
@@ -523,12 +493,13 @@ function escapeHtml(value = "") {
 
 function normaliseTask(task) {
     if (typeof task === "string") {
-        return { id: `legacy-${task}`, name: task, reps: "", sets: "", weight: "" };
+        return { id: `legacy-${task}`, name: task, value: "", unit: "reps", sets: "", weight: "" };
     }
     return {
         id: task.id || makeId(),
         name: task.name || task.exercise || task.title || "Exercise",
-        reps: task.reps || "",
+        value: task.value || task.reps || "",
+        unit: task.unit || "reps",
         sets: task.sets || "",
         weight: task.weight || ""
     };
@@ -541,8 +512,17 @@ function getTaskKey(task) {
 function getTaskLabel(task) {
     const t = normaliseTask(task);
     const parts = [t.name];
+    
+    if (t.value) {
+        let unitDisplay = t.unit;
+        if (t.unit === "reps") unitDisplay = "reps";
+        else if (t.unit === "seconds") unitDisplay = "sec";
+        else if (t.unit === "minutes") unitDisplay = "min";
+        else if (t.unit === "hours") unitDisplay = "hr";
+        parts.push(`${t.value} ${unitDisplay}`);
+    }
+    
     if (t.sets) parts.push(`${t.sets} sets`);
-    if (t.reps) parts.push(`${t.reps} reps`);
     if (t.weight) parts.push(t.weight);
     return parts.join(" • ");
 }
@@ -1058,25 +1038,35 @@ function resetModalInputs() {
     const setsInput = document.getElementById("modalInputSets");
     const weightInput = document.getElementById("modalInputWeight");
     const quantityInput = document.getElementById("modalInputQuantity");
+    const unitSelect = document.getElementById("modalInputUnit");
     const error = document.getElementById("modalError");
+    
     input.value = "";
     input.type = "text";
     input.placeholder = "";
     input.style.display = "block";
     input.removeAttribute("step");
     input.removeAttribute("min");
+    
     calorieInput.value = "";
     calorieInput.type = "number";
     calorieInput.placeholder = "";
     calorieInput.style.display = "none";
     calorieInput.removeAttribute("step");
     calorieInput.removeAttribute("min");
+    
     if (timeInput) {
         timeInput.value = "";
         timeInput.type = "time";
         timeInput.placeholder = "";
         timeInput.style.display = "none";
     }
+    
+    if (unitSelect) {
+        unitSelect.style.display = "none";
+        unitSelect.value = "reps";
+    }
+    
     [repsInput, setsInput, weightInput, quantityInput].forEach(extraInput => {
         if (!extraInput) return;
         extraInput.value = "";
@@ -1085,12 +1075,14 @@ function resetModalInputs() {
         extraInput.style.display = "none";
         extraInput.removeAttribute("min");
     });
+    
     ["modalProtein", "modalCarbs", "modalFat"].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         el.value = "";
         el.style.display = "none";
     });
+    
     error.innerText = "";
 }
 
@@ -1190,40 +1182,53 @@ function editDayFocus(day) {
 
 function fillExerciseModal(task = {}) {
     const t = normaliseTask(task.name ? task : "");
+    
     const input = document.getElementById("modalInput");
     input.type = "text";
     input.placeholder = "Exercise name";
     input.value = t.name === "Exercise" ? "" : t.name;
+    
     const repsInput = document.getElementById("modalInputReps");
     const setsInput = document.getElementById("modalInputSets");
     const weightInput = document.getElementById("modalInputWeight");
+    const unitSelect = document.getElementById("modalInputUnit");
+    
     if (repsInput) {
         repsInput.style.display = "block";
         repsInput.type = "number";
         repsInput.min = "0";
-        repsInput.placeholder = "Reps";
-        repsInput.value = t.reps || "";
+        repsInput.placeholder = "Value (reps/time)";
+        repsInput.value = t.value || "";
     }
+    
+    if (unitSelect) {
+        unitSelect.style.display = "block";
+        unitSelect.value = t.unit || "reps";
+    }
+    
     if (setsInput) {
         setsInput.style.display = "block";
         setsInput.type = "number";
         setsInput.min = "0";
-        setsInput.placeholder = "Sets";
+        setsInput.placeholder = "Sets (optional)";
         setsInput.value = t.sets || "";
     }
+    
     if (weightInput) {
         weightInput.style.display = "block";
         weightInput.type = "text";
-        weightInput.placeholder = "Weight optional, e.g. 5kg dumbbells";
+        weightInput.placeholder = "Weight optional, e.g. 5kg";
         weightInput.value = t.weight || "";
     }
 }
 
 function readExerciseModal() {
+    const unitSelect = document.getElementById("modalInputUnit");
     return {
         id: makeId(),
         name: document.getElementById("modalInput").value.trim(),
-        reps: document.getElementById("modalInputReps")?.value.trim() || "",
+        value: document.getElementById("modalInputReps")?.value.trim() || "",
+        unit: unitSelect ? unitSelect.value : "reps",
         sets: document.getElementById("modalInputSets")?.value.trim() || "",
         weight: document.getElementById("modalInputWeight")?.value.trim() || ""
     };
@@ -1242,6 +1247,7 @@ function submitModal() {
         showModalError("Input cannot be empty.", "modalInput");
         return;
     }
+    
     if (modalMode === "quest") {
         const task = readExerciseModal();
         if (!task.name) {
@@ -1250,6 +1256,7 @@ function submitModal() {
         }
         data.tempTasks.push(task);
     }
+    
     if (modalMode === "editQuest") {
         const i = window.editingTaskIndex;
         const old = data.tempTasks[i];
@@ -1261,6 +1268,7 @@ function submitModal() {
         }
         delete data.completed[getTaskKey(old)];
     }
+    
     if (modalMode === "weight") {
         const weight = Number(input);
         if (!Number.isFinite(weight) || weight <= 0) {
@@ -1273,6 +1281,7 @@ function submitModal() {
         renderStatsPage();
         return;
     }
+    
     if (modalMode === "editWeight") {
         const weight = Number(input);
         if (!Number.isFinite(weight) || weight <= 0) {
@@ -1285,6 +1294,7 @@ function submitModal() {
         renderStatsPage();
         return;
     }
+    
     if (modalMode === "weeklyTask") {
         const task = readExerciseModal();
         if (!task.name) {
@@ -1299,6 +1309,7 @@ function submitModal() {
         render();
         return;
     }
+    
     if (modalMode === "editWeeklyTask") {
         const day = window.selectedDay;
         const i = window.editingWeeklyTaskIndex;
@@ -1321,6 +1332,7 @@ function submitModal() {
         render();
         return;
     }
+    
     if (modalMode === "editFocus") {
         weeklyPlan[window.selectedDay].focus = input;
         saveWeeklyPlan();
@@ -1330,11 +1342,13 @@ function submitModal() {
         render();
         return;
     }
+    
     if (modalMode === "meal") {
         const name = document.getElementById("modalInput").value.trim();
         const calories = Number(document.getElementById("modalInputCalories").value);
         const quantity = Number(document.getElementById("modalInputQuantity")?.value || 1);
         const timeValue = document.getElementById("modalInputTime")?.value || getCurrentTimeInputValue();
+        
         if (!name) {
             showModalError("Enter a meal name.", "modalInput");
             return;
@@ -1347,6 +1361,7 @@ function submitModal() {
             showModalError("Enter a valid multiplier.", "modalInputQuantity");
             return;
         }
+        
         data.meals.push({
             id: makeId(),
             date: getTodayString(),
@@ -1357,16 +1372,19 @@ function submitModal() {
             calories: Math.round(calories * quantity),
             ...(() => { const m = readMacroInputs(); return { protein: Math.round(m.protein * quantity), carbs: Math.round(m.carbs * quantity), fat: Math.round(m.fat * quantity), baseProtein: m.protein, baseCarbs: m.carbs, baseFat: m.fat }; })()
         });
+        
         saveData();
         closeModal();
         renderCaloriePage();
         return;
     }
+    
     if (modalMode === "editMeal") {
         const name = document.getElementById("modalInput").value.trim();
         const calories = Number(document.getElementById("modalInputCalories").value);
         const quantity = Number(document.getElementById("modalInputQuantity")?.value || 1);
         const timeValue = document.getElementById("modalInputTime")?.value || getCurrentTimeInputValue();
+        
         if (!name) {
             showModalError("Enter a meal name.", "modalInput");
             return;
@@ -1379,11 +1397,13 @@ function submitModal() {
             showModalError("Enter a valid multiplier.", "modalInputQuantity");
             return;
         }
+        
         const oldMeal = data.meals[window.editingMealIndex];
         if (!oldMeal) {
             showModalError("Could not find this meal.", "modalInput");
             return;
         }
+        
         const actualIndex = findMealActualIndex(oldMeal);
         if (actualIndex !== -1) {
             data.meals[actualIndex].name = name;
@@ -1400,14 +1420,17 @@ function submitModal() {
             data.meals[actualIndex].carbs = Math.round(m.carbs * quantity);
             data.meals[actualIndex].fat = Math.round(m.fat * quantity);
         }
+        
         saveData();
         closeModal();
         renderCaloriePage();
         return;
     }
+    
     if (modalMode === "frequentMeal") {
         const name = document.getElementById("modalInput").value.trim();
         const calories = Number(document.getElementById("modalInputCalories").value);
+        
         if (!name) {
             showModalError("Enter a meal name.", "modalInput");
             return;
@@ -1416,16 +1439,19 @@ function submitModal() {
             showModalError("Enter valid calories per serve.", "modalInputCalories");
             return;
         }
+        
         frequentMeals.push({ id: makeId(), name, calories, ...readMacroInputs() });
         saveFrequentMeals();
         closeModal();
         renderFrequentMealsPage();
         return;
     }
+    
     if (modalMode === "editFrequentMeal") {
         const name = document.getElementById("modalInput").value.trim();
         const calories = Number(document.getElementById("modalInputCalories").value);
         const index = window.editingFrequentMealIndex;
+        
         if (!name) {
             showModalError("Enter a meal name.", "modalInput");
             return;
@@ -1434,6 +1460,7 @@ function submitModal() {
             showModalError("Enter valid calories per serve.", "modalInputCalories");
             return;
         }
+        
         if (frequentMeals[index]) {
             frequentMeals[index].name = name;
             frequentMeals[index].calories = calories;
@@ -1442,11 +1469,13 @@ function submitModal() {
             frequentMeals[index].carbs = m.carbs;
             frequentMeals[index].fat = m.fat;
         }
+        
         saveFrequentMeals();
         closeModal();
         renderFrequentMealsPage();
         return;
     }
+    
     if (modalMode === "bodyFat") {
         const bodyFat = Number(input);
         if (!Number.isFinite(bodyFat) || bodyFat <= 0 || bodyFat > 70) {
@@ -1460,6 +1489,7 @@ function submitModal() {
         saveData();
         renderStatsPage();
         renderCaloriePage();
+        
         if (!setupData.targetBodyFat || setupData.targetBodyFat === "X") {
             modalMode = "targetBodyFat";
             resetModalInputs();
@@ -1474,6 +1504,7 @@ function submitModal() {
         closeModal();
         return;
     }
+    
     if (modalMode === "targetBodyFat") {
         const targetFat = Number(input);
         if (!Number.isFinite(targetFat) || targetFat <= 0 || targetFat > 70) {
@@ -1487,6 +1518,7 @@ function submitModal() {
         renderCaloriePage();
         return;
     }
+    
     if (modalMode === "editBodyFat") {
         const bodyFat = Number(input);
         if (!Number.isFinite(bodyFat) || bodyFat <= 0 || bodyFat > 70) {
@@ -1500,6 +1532,7 @@ function submitModal() {
         renderCaloriePage();
         return;
     }
+    
     saveData();
     closeModal();
     render();
@@ -1915,8 +1948,6 @@ function hideAllPages() {
     document.getElementById("rehabPage").style.display = "none";
     const frequentPage = document.getElementById("frequentMealPage");
     if (frequentPage) frequentPage.style.display = "none";
-    const notifPage = document.getElementById("notificationsPage");
-    if (notifPage) notifPage.style.display = "none";
 }
 
 function goToStats() {
@@ -1985,375 +2016,3 @@ else {
     render();
     updateTimer();
 }
-
-// ==================================================
-// NOTIFICATION SYSTEM
-// ==================================================
-
-let lastTriggeredReminder = "";
-
-function openNotificationSettings() {
-    hideAllPages();
-    const notifPage = document.getElementById("notificationsPage");
-    if (notifPage) {
-        notifPage.style.display = "flex";
-        renderNotificationsPage();
-        renderWorkoutReminders();
-    }
-    autoResizeWindow();
-}
-
-function closeNotificationsPage() {
-    const notifPage = document.getElementById("notificationsPage");
-    if (notifPage) notifPage.style.display = "none";
-    document.getElementById("tasksPage").style.display = "flex";
-    autoResizeWindow();
-}
-
-function renderNotificationsPage() {
-    renderWorkoutReminders();
-    renderMotivationSettings();
-}
-
-function renderWorkoutReminders() {
-    const list = document.getElementById("reminderList");
-    if (!list) return;
-    list.innerHTML = "";
-    if (!setupData.reminders) setupData.reminders = [];
-    if (!setupData.reminders.length) {
-        list.innerHTML = `<div class="notif-empty">No reminders set yet.</div>`;
-        return;
-    }
-    setupData.reminders.forEach((time, index) => {
-        const div = document.createElement("div");
-        div.className = "task-row reminder-row";
-        div.innerHTML = `<input class="setup-input" type="time" value="${escapeHtml(time)}" onchange="updateReminder(${index}, this.value)"><button class="remove-btn" onclick="removeReminder(${index})">Remove</button>`;
-        list.appendChild(div);
-    });
-}
-
-function addWorkoutReminder() {
-    const timeInput = document.getElementById("newReminderTime");
-    const err = document.getElementById("reminderError");
-    
-    if (!timeInput || !timeInput.value) {
-        if (err) err.innerText = "Please select a time.";
-        return;
-    }
-    if (err) err.innerText = "";
-    if (!setupData.reminders) setupData.reminders = [];
-    if (!setupData.reminders.includes(timeInput.value)) {
-        setupData.reminders.push(timeInput.value);
-        setupData.reminders.sort();
-        setStorage("setupData", setupData);
-        renderWorkoutReminders();
-        const successMsg = document.createElement("div");
-        successMsg.style.color = "#46eaff";
-        successMsg.style.fontSize = "10px";
-        successMsg.style.marginTop = "5px";
-        successMsg.innerText = `✅ Reminder set for ${timeInput.value}`;
-        const addRow = document.querySelector(".reminder-add-row");
-        if (addRow) addRow.appendChild(successMsg);
-        setTimeout(() => successMsg.remove(), 2000);
-        if (Notification.permission === "default") {
-            requestNotificationAccess();
-        }
-    } else {
-        if (err) err.innerText = "This reminder time already exists.";
-    }
-    timeInput.value = "";
-    autoResizeWindow();
-}
-
-function updateReminder(index, time) {
-    if (!setupData.reminders || !time) return;
-    setupData.reminders[index] = time;
-    setupData.reminders = [...new Set(setupData.reminders)].sort();
-    setStorage("setupData", setupData);
-    renderWorkoutReminders();
-    autoResizeWindow();
-}
-
-function removeReminder(index) {
-    if (!setupData.reminders) return;
-    setupData.reminders.splice(index, 1);
-    setStorage("setupData", setupData);
-    renderWorkoutReminders();
-    autoResizeWindow();
-}
-
-function renderMotivationSettings() {
-    const statusEl = document.getElementById("motivationStatus");
-    if (!statusEl) return;
-    const enabled = setupData.motivationEnabled !== false;
-    const permission = getNotificationPermissionLabel();
-    statusEl.innerText = enabled ? `Enabled. Sends 1-3 motivational alerts per day at random times. Permission: ${permission}.` : `Disabled. Permission: ${permission}.`;
-    const toggleBtn = document.getElementById("motivationToggleBtn");
-    if (toggleBtn) toggleBtn.innerText = enabled ? "Disable" : "Enable";
-}
-
-function toggleMotivationNotifications() {
-    const enabled = setupData.motivationEnabled !== false;
-    setupData.motivationEnabled = !enabled;
-    setStorage("setupData", setupData);
-    renderMotivationSettings();
-    const notifPage = document.getElementById("notificationsPage");
-    if (notifPage && notifPage.style.display === "flex") {
-        renderNotificationsPage();
-    }
-    console.log(`Motivation notifications ${setupData.motivationEnabled ? "enabled" : "disabled"}`);
-}
-
-function getNotificationPermissionLabel() {
-    if (CapacitorLocalNotifications) {
-        return "native (APK)";
-    }
-    if (!("Notification" in window)) return "not supported";
-    return Notification.permission;
-}
-
-function requestNotificationAccess() {
-    console.log("Requesting notification access...");
-    
-    // For Capacitor native
-    if (CapacitorLocalNotifications) {
-        CapacitorLocalNotifications.requestPermissions().then(perm => {
-            console.log("Native permission result:", perm);
-            if (perm.display === 'granted') {
-                sendAppNotification("Solo System", "✅ Notifications enabled!");
-            }
-            renderMotivationSettings();
-        });
-        return;
-    }
-    
-    // Fallback for web
-    if (!("Notification" in window)) {
-        alert("This browser does not support notifications.");
-        return;
-    }
-    
-    if (Notification.permission === "granted") {
-        sendAppNotification("Solo System", "✅ Notifications enabled!");
-        renderMotivationSettings();
-        return;
-    }
-    
-    if (Notification.permission !== "denied") {
-        Notification.requestPermission().then(permission => {
-            if (permission === "granted") {
-                sendAppNotification("Solo System", "🎉 Notifications enabled!");
-                ensureMotivationSchedule(true);
-            }
-            renderMotivationSettings();
-        });
-    } else {
-        alert("Notifications are blocked. Please enable them in your device settings.");
-    }
-}
-
-
-async function sendAppNotification(title, body) {
-    console.log("Sending notification:", title, body);
-    
-    // Use native notifications if available (for APK/IPA)
-    if (CapacitorLocalNotifications) {
-        try {
-            await CapacitorLocalNotifications.schedule({
-                notifications: [{
-                    title: title,
-                    body: body,
-                    id: Date.now(),
-                    schedule: { at: new Date() },
-                    sound: null,
-                    smallIcon: "ic_stat_icon_config_sample",
-                    iconColor: "#46eaff"
-                }]
-            });
-            console.log("Native notification sent");
-            return true;
-        } catch (e) {
-            console.log("Native notification failed:", e);
-        }
-    }
-    
-    // Fallback to web notifications (for browser testing)
-    if (!("Notification" in window)) {
-        console.log("Web notifications not supported");
-        return false;
-    }
-    
-    if (Notification.permission !== "granted") {
-        console.log("Web notification permission not granted");
-        return false;
-    }
-    
-    try {
-        const notification = new Notification(title, { body: body });
-        setTimeout(() => notification.close(), 5000);
-        console.log("Web notification sent");
-        return true;
-    } catch (error) {
-        console.error("Failed to send notification:", error);
-        return false;
-    }
-}
-
-
-function ensureMotivationSchedule(forceNew = false) {
-    if (setupData.motivationEnabled === false) return null;
-    const today = getNotificationDayKey();
-    const saved = getStorage("motivationSchedule");
-    if (!forceNew && saved?.date === today && Array.isArray(saved.items)) return saved;
-    const count = Math.floor(Math.random() * 3) + 1;
-    const times = new Set();
-    const usedQuotes = new Set();
-    const items = [];
-    while (times.size < count) { 
-        const hour = Math.floor(Math.random() * 12) + 8; 
-        const minute = Math.floor(Math.random() * 60); 
-        times.add(hour.toString().padStart(2, "0") + ":" + minute.toString().padStart(2, "0")); 
-    }
-    [...times].sort().forEach(time => {
-        let quoteIndex;
-        do { 
-            quoteIndex = Math.floor(Math.random() * motivationalQuotes.length); 
-        } while (usedQuotes.has(quoteIndex) && usedQuotes.size < motivationalQuotes.length);
-        usedQuotes.add(quoteIndex);
-        items.push({ time, quoteIndex });
-    });
-    const schedule = { date: today, items };
-    setStorage("motivationSchedule", schedule);
-    setStorage("triggeredMotivationNotifications", {});
-    return schedule;
-}
-
-function getNotificationDayKey(date = new Date()) { 
-    return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"); 
-}
-
-function getTimeString(date = new Date()) { 
-    return date.getHours().toString().padStart(2, "0") + ":" + date.getMinutes().toString().padStart(2, "0"); 
-}
-
-function wasMotivationTriggered(key) { 
-    const triggered = getStorage("triggeredMotivationNotifications") || {}; 
-    return !!triggered[key]; 
-}
-
-function markMotivationTriggered(key) { 
-    const triggered = getStorage("triggeredMotivationNotifications") || {}; 
-    triggered[key] = true; 
-    setStorage("triggeredMotivationNotifications", triggered); 
-}
-
-function checkMotivationNotifications(now = new Date()) {
-    if (setupData.motivationEnabled === false) return;
-    if (Notification.permission !== "granted") return;
-    
-    const schedule = ensureMotivationSchedule();
-    if (!schedule) return;
-    
-    const today = getNotificationDayKey(now);
-    const timeStr = getTimeString(now);
-    const currentMinute = timeStr.substring(0, 5);
-    
-    if (lastMotivationCheckMinute === currentMinute) return;
-    lastMotivationCheckMinute = currentMinute;
-    
-    const item = schedule.items.find(entry => entry.time === currentMinute);
-    if (!item) return;
-    
-    const triggerKey = `${today}:motivation:${currentMinute}`;
-    if (wasMotivationTriggered(triggerKey)) return;
-    
-    console.log("MOTIVATION TRIGGERED at:", currentMinute);
-    sendAppNotification("⚡ Solo System Alert", motivationalQuotes[item.quoteIndex]);
-    markMotivationTriggered(triggerKey);
-}
-
-function resetReminderDayIfNeeded() {
-    const today = getNotificationDayKey();
-    if (lastReminderCheckDay === today) return;
-    lastReminderCheckDay = today;
-    lastTriggeredReminder = "";
-}
-
-function checkReminderNotifications(now = new Date()) {
-    if (!setupData.reminders || setupData.reminders.length === 0) return;
-    
-    const timeStr = getTimeString(now);
-    const currentMinute = timeStr.substring(0, 5);
-    
-    if (setupData.reminders.includes(currentMinute) && lastTriggeredReminder !== currentMinute) {
-        console.log("REMINDER TRIGGERED for:", currentMinute);
-        sendAppNotification("⏰ Solo System", "Time to train! Your daily quest awaits. 💪");
-        lastTriggeredReminder = currentMinute;
-        
-        setTimeout(() => {
-            if (lastTriggeredReminder === currentMinute) {
-                lastTriggeredReminder = "";
-            }
-        }, 120000);
-    }
-}
-
-function checkPhoneNotifications() { 
-    resetReminderDayIfNeeded(); 
-    checkReminderNotifications(); 
-    checkMotivationNotifications(); 
-}
-
-let lastMotivationCheckMinute = "";
-let lastReminderCheckDay = getNotificationDayKey(new Date());
-
-// Check for notifications every 10 seconds
-setInterval(() => {
-    if (setupData.complete) {
-        checkPhoneNotifications();
-    }
-}, 10000);
-
-// Check when page gets focus
-window.addEventListener("focus", () => {
-    console.log("Window focused, checking notifications");
-    if (setupData.complete) {
-        checkPhoneNotifications();
-        render();
-        renderStatsPage();
-        renderCaloriePage();
-    }
-});
-
-// Check when page becomes visible again
-document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) {
-        console.log("Page became visible, checking notifications");
-        if (setupData.complete) {
-            checkPhoneNotifications();
-            render();
-            renderStatsPage();
-            renderCaloriePage();
-        }
-    }
-});
-
-ensureMotivationSchedule();
-
-const motivationalQuotes = [
-    "Arise, Hunter. It is time to train.",
-    "The dungeon won't clear itself. Get moving!",
-    "Strength isn't given, it's earned. Go train.",
-    "A moment of rest is a moment of weakness.",
-    "Your stats won't increase if you stay still!",
-    "Every rep is a step closer to your final form.",
-    "Pain is temporary. Glory is forever.",
-    "The grind doesn't stop. Neither do you.",
-    "You didn't come this far to only come this far.",
-    "Level up. The quest won't complete itself.",
-    "Champions train when no one is watching.",
-    "Your future self is counting on today's effort.",
-    "One more set. One more step. One more win.",
-    "Weak excuses build weak bodies. Get moving.",
-    "The iron never lies. Show up and lift."
-];
