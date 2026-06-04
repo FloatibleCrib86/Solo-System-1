@@ -1,1 +1,274 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Solo System Mobile</title>
+    <meta name="theme-color" content="#03101f" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="stylesheet" href="style.css" />
+</head>
 
+<body class="mobile-web">
+    <div class="panel">
+
+        <div class="drag-bar" style="-webkit-app-region: drag; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; height: 30px; box-sizing: border-box;">
+        <button onclick="openNotificationSettings()" style="-webkit-app-region: no-drag; background: none; border: none; cursor: pointer; color: #46eaff; font-size: 18px; padding: 0; z-index: 100;">
+            🔔
+        </button>
+        <span style="font-size: 10px; color: #74f3ff; letter-spacing: 1px; pointer-events: none;">DAILY QUEST SYSTEM</span>
+        <button onclick="window.close()" style="-webkit-app-region: no-drag; background: none; border: none; cursor: pointer; color: #46eaff; font-size: 18px; padding: 0; z-index: 100;">
+            ×
+        </button>
+    </div>
+
+        <section id="setupOverlay">
+            <h1>PLAYER REGISTRATION</h1>
+            <p class="subtitle" id="setupSubtitle"></p>
+
+            <div id="setupContent"></div>
+
+            <div class="modal-buttons">
+                <button id="setupBackBtn" type="button" onclick="setupBack()">Back</button>
+                <button type="button" onclick="setupNext(event)">Next</button>
+            </div>
+        </section>
+
+        <section id="tasksPage">
+            <h1>QUEST INFO</h1>
+            <div id="timer"></div>
+            <p class="subtitle">Train to become a formidable combatant</p>
+
+            <div id="focus"></div>
+            <div id="tasks"></div>
+
+            <button id="addTempBtn" class="page-btn" onclick="openQuestModal()">
+                + Add Temporary Quest
+            </button>
+
+            <div class="bottom-actions">
+
+                <button class="page-btn" onclick="goToStats()">
+                    Personal Stats →
+                </button>
+
+                <button class="page-btn" onclick="goToCalories()">
+                    Calorie Counter →
+                </button>
+            </div>
+
+            <div id="completedOverlay">
+                <h1>COMPLETED</h1>
+                <p>All daily quests cleared.</p>
+                <button class="page-btn" onclick="goToStats()">Personal Stats →</button>
+                <button class="page-btn" onclick="goToCalories()">Calorie Counter →</button>
+            </div>
+        </section>
+
+        <section id="statsPage">
+            <h1>PLAYER STATUS</h1>
+
+            <div class="stat-box">
+                <p><strong>Date:</strong> <span id="dateText"></span></p>
+                <p><strong>Name:</strong> <span id="nameText"></span></p>
+                <p><strong>Height:</strong> <span id="heightText"></span></p>
+                <p><strong>Current Weight:</strong> <span id="weightText"></span></p>
+                <p><strong>Target Weight:</strong> <span id="goalWeightText"></span></p>
+                <p><strong>Current Body Fat:</strong> <span id="bodyFatText"></span></p>
+                <p><strong>Target Body Fat:</strong> <span id="targetBodyFatText"></span></p>
+            </div>
+
+            <div class="chart-row">
+                <div class="mini-chart-box">
+                    <h2>Weight</h2>
+                    <canvas id="weightChart" width="115" height="110"></canvas>
+                </div>
+
+                <div class="mini-chart-box">
+                    <h2>Body Fat %</h2>
+                    <canvas id="fatChart" width="115" height="110"></canvas>
+                </div>
+            </div>
+            <h2>Weight History</h2>
+            <div id="weightHistoryList"></div>
+            <button class="page-btn" onclick="openWeightModal()">
+                + Add New Weight
+            </button>
+            <h2>Body Fat History</h2>
+            <div id="fatHistoryList"></div>
+            <button class="page-btn" onclick="openBodyFatModal()">
+                + Add New Body Fat %
+            </button>
+
+            <h2>Weekly Focus</h2>
+            <div id="weeklyFocus"></div>
+
+            <h2>Rehab Protocol</h2>
+            <div class="week-focus-item">
+                <strong>Status:</strong> <span id="rehabStatusText">No active rehab protocol</span>
+            </div>
+
+            <button class="page-btn" onclick="goToRehab()">
+                Enter Rehab Protocol →
+            </button>
+
+            <button class="page-btn danger-btn" onclick="confirmFullReset()">
+                Reset System
+            </button>
+
+            <button class="page-btn" onclick="goToTasks()">
+                ← Back to Tasks
+            </button>
+        </section>
+
+        <section id="rehabPage">
+            <h1>REHAB PROTOCOL</h1>
+            <p class="subtitle">Simple recovery quests for minor injuries</p>
+
+            <div id="rehabContent"></div>
+
+            <button class="page-btn" onclick="goToStats()">
+                ← Back to Player Status
+            </button>
+        </section>
+
+        <section id="caloriePage">
+            <h1>CALORIE COUNTER</h1>
+
+            <div class="calorie-toggle">
+                <button class="calorie-toggle-btn active" data-mode="daily" onclick="setCalorieView('daily')">Daily</button>
+                <button class="calorie-toggle-btn" data-mode="weekly" onclick="setCalorieView('weekly')">Weekly</button>
+            </div>
+            <p class="subtitle" id="calorieViewLabel"></p>
+
+            <div class="stat-box">
+                <p><strong>Target Weight:</strong> <span id="idealWeightText"></span></p>
+                <p><strong>Height:</strong> <span id="calorieHeightText"></span></p>
+                <p><strong>Body Fat:</strong> <span id="calorieBodyFatText"></span></p>
+                <p><strong>Target Body Fat:</strong> <span id="calorieTargetBodyFatText"></span></p>
+                <p><strong>Cut:</strong> <span id="cutCaloriesText"></span></p>
+                <p><strong>Maintain:</strong> <span id="maintainCaloriesText"></span></p>
+                <p><strong>Gain:</strong> <span id="gainCaloriesText"></span></p>
+            </div>
+
+            <div class="calorie-action-row">
+                <button id="addMealBtn" class="page-btn" onclick="openMealModal()">
+                    + Add Meal
+                </button>
+                <button id="frequentMealBtn" class="page-btn" onclick="goToFrequentMeals()">
+                    Frequent Meals
+                </button>
+            </div>
+
+            <div class="stat-box">
+                <h2>MACROS TODAY</h2>
+                <div class="macro-row">
+                    <span>Protein</span>
+                    <strong id="proteinText">0 g / 0 g</strong>
+                </div>
+                <div class="macro-row">
+                    <span>Carbs</span>
+                    <strong id="carbsText">0 g / 0 g</strong>
+                </div>
+                <div class="macro-row">
+                    <span>Fat</span>
+                    <strong id="fatText">0 g / 0 g</strong>
+                </div>
+            </div>
+
+            <h2>Meals Today</h2>
+            <div id="mealList"></div>
+
+            <div class="calorie-left-box">
+                <p>CALORIES LEFT</p>
+                <h1 id="caloriesLeftText"></h1>
+                <p id="caloriesEatenText"></p>
+            </div>
+
+            <button class="page-btn" onclick="goToTasks()">
+                ← Back to Tasks
+            </button>
+
+            <div id="calorieDoneOverlay">
+                <button class="overlay-close" onclick="closeCalorieDoneOverlay()">×</button>
+                <h1>CALORIE LIMIT REACHED</h1>
+                <p>Calories hit. No more meals can be added today.</p>
+            </div>
+        </section>
+
+
+        <section id="frequentMealPage">
+            <h1>FREQUENT MEALS</h1>
+            <p class="subtitle">Tap a saved meal to add it to your calories. Use the multiplier for multiple serves.</p>
+
+            <div id="frequentMealList"></div>
+
+            <button class="page-btn" onclick="openFrequentMealModal()">
+                + Add Frequent Meal
+            </button>
+
+            <button class="page-btn" onclick="goToCalories()">
+                ← Back to Calorie Counter
+            </button>
+        </section>
+
+        <div id="inputModal">
+            <div class="modal-box">
+                <h2 id="modalTitle"></h2>
+
+                <input id="modalInput" />
+                <input id="modalInputCalories" type="number" />
+                <input id="modalInputQuantity" type="number" />
+                <input id="modalInputTime" type="time" />
+                <input id="modalInputReps" type="number" />
+                <input id="modalInputSets" type="number" />
+                <input id="modalInputWeight" type="text" />
+
+                <input id="modalProtein" class="macro-input" type="number" placeholder="Protein (g)" />
+                <input id="modalCarbs" class="macro-input" type="number" placeholder="Carbs (g)" />
+                <input id="modalFat" class="macro-input" type="number" placeholder="Fat (g)" />
+
+                <p id="modalError"></p>
+
+                <div class="modal-buttons">
+                    <button onclick="closeModal()">Cancel</button>
+                    <button onclick="submitModal()">Confirm</button>
+                </div>
+            </div>
+        </div>
+
+        <section id="notificationsPage">
+            <h1>NOTIFICATIONS</h1>
+            <p class="subtitle">Set training reminders and daily motivation.</p>
+
+            <div class="stat-box">
+                <h2>Start Reminders</h2>
+                <div id="reminderList"></div>
+
+                <div class="reminder-add-row">
+                    <input id="newReminderTime" class="setup-input" type="time">
+                    <button class="page-btn" onclick="addWorkoutReminder()">+ Add</button>
+                </div>
+                <p id="reminderError"></p>
+            </div>
+
+            <div class="stat-box">
+                <h2>Motivation</h2>
+                <p id="motivationStatus"></p>
+                <button id="motivationToggleBtn" class="page-btn" onclick="toggleMotivationNotifications()">Disable</button>
+            </div>
+
+            <button class="page-btn" onclick="requestNotificationAccess()">Allow Notifications</button>
+            <button class="page-btn" onclick="closeNotificationsPage()">Back to Tasks</button>
+        </section>
+
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => navigator.serviceWorker.register("service-worker.js"));
+        }
+    </script>
+</body>
+</html>
