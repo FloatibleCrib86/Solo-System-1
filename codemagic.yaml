@@ -5,10 +5,10 @@ workflows:
     environment:
       node: 18
     scripts:
-      - name: Install Capacitor and Plugins
+      - name: Install Capacitor
         script: |
           npm install -g @capacitor/cli
-          npm install @capacitor/core @capacitor/android @capacitor/local-notifications
+          npm install @capacitor/core @capacitor/android
       
       - name: Setup Capacitor Project
         script: |
@@ -35,10 +35,10 @@ workflows:
     environment:
       node: 18
     scripts:
-      - name: Install Capacitor and Plugins
+      - name: Install Capacitor
         script: |
           npm install -g @capacitor/cli
-          npm install @capacitor/core @capacitor/ios @capacitor/local-notifications
+          npm install @capacitor/core @capacitor/ios
       
       - name: Setup Capacitor Project
         script: |
