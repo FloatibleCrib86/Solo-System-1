@@ -5,23 +5,20 @@ workflows:
     environment:
       node: 18
     scripts:
-      - name: Install Capacitor
+      - name: Install Capacitor and Plugins
         script: |
           npm install -g @capacitor/cli
-          npm install @capacitor/core @capacitor/android
+          npm install @capacitor/core @capacitor/android @capacitor/local-notifications
       
-      - name: Clean and Build
+      - name: Setup Capacitor Project
         script: |
-          # Remove existing android folder if it exists
-          rm -rf android
-          
-          # Initialize with webDir = www
           npx cap init "Solo System" "com.solosystem.app" --web-dir=www
           npx cap add android
-          npx cap copy
           npx cap sync
-          
-          # Build APK
+          npx cap copy
+      
+      - name: Build APK
+        script: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
@@ -38,22 +35,20 @@ workflows:
     environment:
       node: 18
     scripts:
-      - name: Install Capacitor
+      - name: Install Capacitor and Plugins
         script: |
           npm install -g @capacitor/cli
-          npm install @capacitor/core @capacitor/ios
+          npm install @capacitor/core @capacitor/ios @capacitor/local-notifications
       
-      - name: Clean and Build
+      - name: Setup Capacitor Project
         script: |
-          # Remove existing ios folder if it exists
-          rm -rf ios
-          
           npx cap init "Solo System" "com.solosystem.app" --web-dir=www
           npx cap add ios
-          npx cap copy
           npx cap sync
-          
-          # Build iOS
+          npx cap copy
+      
+      - name: Build iOS
+        script: |
           cd ios/App
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Release build
     artifacts:
