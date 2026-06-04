@@ -2,16 +2,22 @@ workflows:
   android-build:
     name: Android APK
     instance_type: mac_mini_m1
+    environment:
+      node: 18
     scripts:
-      - name: Install dependencies
+      - name: Install Capacitor
         script: |
           npm install -g @capacitor/cli
           npm install @capacitor/core @capacitor/android
-      - name: Setup Capacitor
+      
+      - name: Initialize Capacitor
         script: |
-          npx cap init "Solo System" "com.solosystem.app"
+          # Initialize with webDir = . (root folder)
+          npx cap init "Solo System" "com.solosystem.app" --web-dir=.
           npx cap add android
           npx cap copy
+          npx cap sync
+      
       - name: Build APK
         script: |
           cd android
@@ -22,21 +28,26 @@ workflows:
     publishing:
       email:
         recipients:
-          - chetwinchli@gmail.com
+          - your-email@gmail.com
 
   ios-build:
     name: iOS IPA
     instance_type: mac_mini_m1
+    environment:
+      node: 18
     scripts:
-      - name: Install dependencies
+      - name: Install Capacitor
         script: |
           npm install -g @capacitor/cli
           npm install @capacitor/core @capacitor/ios
-      - name: Setup Capacitor
+      
+      - name: Initialize Capacitor
         script: |
-          npx cap init "Solo System" "com.solosystem.app"
+          npx cap init "Solo System" "com.solosystem.app" --web-dir=.
           npx cap add ios
           npx cap copy
+          npx cap sync
+      
       - name: Build iOS
         script: |
           cd ios/App
@@ -46,4 +57,4 @@ workflows:
     publishing:
       email:
         recipients:
-          - chetwinchli@gmail.com
+          - your-email@gmail.com
