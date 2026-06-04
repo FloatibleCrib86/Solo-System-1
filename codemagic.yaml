@@ -10,10 +10,26 @@ workflows:
           npm install -g @capacitor/cli
           npm install @capacitor/core @capacitor/android
       
-      - name: Setup Capacitor Project
+      - name: Create Capacitor Project
         script: |
-          npx cap init "Solo System" "com.solosystem.app" --web-dir=www
+          # Create a fresh capacitor project in a temp directory
+          mkdir -p temp_project
+          cd temp_project
+          npx cap init "Solo System" "com.solosystem.app" --web-dir=../www
           npx cap add android
+          # Copy the android folder back to main directory
+          cp -r android ../
+          cd ..
+          rm -rf temp_project
+      
+      - name: Copy Web Files
+        script: |
+          # Ensure the web files are in the right place
+          mkdir -p android/app/src/main/assets/public
+          cp -r www/* android/app/src/main/assets/public/
+      
+      - name: Sync Capacitor
+        script: |
           npx cap sync
           npx cap copy
       
@@ -40,10 +56,23 @@ workflows:
           npm install -g @capacitor/cli
           npm install @capacitor/core @capacitor/ios
       
-      - name: Setup Capacitor Project
+      - name: Create Capacitor Project
         script: |
-          npx cap init "Solo System" "com.solosystem.app" --web-dir=www
+          mkdir -p temp_project
+          cd temp_project
+          npx cap init "Solo System" "com.solosystem.app" --web-dir=../www
           npx cap add ios
+          cp -r ios ../
+          cd ..
+          rm -rf temp_project
+      
+      - name: Copy Web Files
+        script: |
+          mkdir -p ios/App/public
+          cp -r www/* ios/App/public/
+      
+      - name: Sync Capacitor
+        script: |
           npx cap sync
           npx cap copy
       
