@@ -179,6 +179,7 @@
         <div id="inputModal">
             <div class="modal-box">
                 <h2 id="modalTitle"></h2>
+                
                 <input id="modalInput" />
                 <input id="modalInputCalories" type="number" />
                 <input id="modalInputQuantity" type="number" />
@@ -186,16 +187,20 @@
                 <input id="modalInputReps" type="number" />
                 <input id="modalInputSets" type="number" />
                 <input id="modalInputWeight" type="text" />
-                <select id="modalInputUnit" style="display: none; width: 100%; margin-top: 8px; padding: 7px; background: rgba(0,217,255,0.1); border: 1px solid #46eaff; border-radius: 6px; color: white;">
+                
+                <select id="modalInputUnit" style="display: none;">
                     <option value="reps">Reps</option>
                     <option value="seconds">Seconds</option>
                     <option value="minutes">Minutes</option>
                     <option value="hours">Hours</option>
                 </select>
+                
                 <input id="modalProtein" class="macro-input" type="number" placeholder="Protein (g)" />
                 <input id="modalCarbs" class="macro-input" type="number" placeholder="Carbs (g)" />
                 <input id="modalFat" class="macro-input" type="number" placeholder="Fat (g)" />
+                
                 <p id="modalError"></p>
+                
                 <div class="modal-buttons">
                     <button onclick="closeModal()">Cancel</button>
                     <button onclick="submitModal()">Confirm</button>
