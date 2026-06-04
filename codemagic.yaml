@@ -4,7 +4,6 @@ workflows:
     instance_type: mac_mini_m1
     environment:
       node: 18
-      android_sdk: 33
     scripts:
       - name: Install dependencies
         script: |
@@ -32,7 +31,6 @@ workflows:
     instance_type: mac_mini_m1
     environment:
       node: 18
-      xcode: latest
     scripts:
       - name: Install dependencies
         script: |
