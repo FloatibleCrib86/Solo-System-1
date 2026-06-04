@@ -1957,7 +1957,98 @@ else {
     updateTimer();
 }
 
+// ==================================================
+// NOTIFICATION SYSTEM (Updated with Capacitor Local Notifications)
+// ==================================================
+
 let lastTriggeredReminder = "";
+let LocalNotifications = null;
+
+// Initialize Capacitor Local Notifications
+async function initNativeNotifications() {
+    if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
+        try {
+            const { LocalNotifications: LN } = await import('@capacitor/local-notifications');
+            LocalNotifications = LN;
+            
+            if (Capacitor.getPlatform() === 'android') {
+                const perm = await LocalNotifications.checkPermissions();
+                if (perm.display !== 'granted') {
+                    await LocalNotifications.requestPermissions();
+                }
+            }
+            console.log("Native notifications initialized");
+        } catch (e) {
+            console.log("Native notifications not available", e);
+        }
+    }
+}
+
+// Call this when the app loads
+if (typeof window !== 'undefined') {
+    initNativeNotifications();
+}
+
+// Send notification (uses native if available, falls back to web)
+async function sendAppNotification(title, body) {
+    console.log("Sending notification:", title, body);
+    
+    // Try native notifications first (for APK)
+    if (LocalNotifications) {
+        try {
+            await LocalNotifications.schedule({
+                notifications: [{
+                    title: title,
+                    body: body,
+                    id: Date.now(),
+                    schedule: { at: new Date() },
+                    sound: null,
+                    smallIcon: "ic_stat_icon_config_sample",
+                    iconColor: "#46eaff"
+                }]
+            });
+            console.log("Native notification sent");
+            return true;
+        } catch (e) {
+            console.log("Native notification failed:", e);
+        }
+    }
+    
+    // Fallback to web notifications
+    if (!("Notification" in window)) return false;
+    if (Notification.permission !== "granted") return false;
+    
+    const options = {
+        body: body,
+        icon: "solo_ui.png",
+        badge: "solo_ui.png",
+        vibrate: [200, 100, 200],
+        silent: false,
+        requireInteraction: true,
+        tag: "solo_system_" + Date.now(),
+        renotify: true
+    };
+    
+    try {
+        if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+            const registration = await navigator.serviceWorker.ready;
+            if (registration && registration.showNotification) {
+                await registration.showNotification(title, options);
+                console.log("Notification sent via service worker");
+                return true;
+            }
+        }
+        
+        const notification = new Notification(title, options);
+        notification.onclick = function() { window.focus(); this.close(); };
+        setTimeout(() => { if (notification.close) notification.close(); }, 5000);
+        console.log("Notification sent successfully");
+        return true;
+    } catch (error) {
+        console.error("Failed to send notification:", error);
+        return false;
+    }
+}
 
 function openNotificationSettings() {
     hideAllPages();
@@ -2063,14 +2154,11 @@ function toggleMotivationNotifications() {
     const enabled = setupData.motivationEnabled !== false;
     setupData.motivationEnabled = !enabled;
     setStorage("setupData", setupData);
-    
     renderMotivationSettings();
-    
     const notifPage = document.getElementById("notificationsPage");
     if (notifPage && notifPage.style.display === "flex") {
         renderNotificationsPage();
     }
-    
     console.log(`Motivation notifications ${setupData.motivationEnabled ? "enabled" : "disabled"}`);
 }
 
@@ -2110,64 +2198,6 @@ function requestNotificationAccess() {
         });
     } else {
         alert("Notifications are blocked. Please enable them in your device settings for this app.");
-    }
-}
-
-async function sendAppNotification(title, body) {
-    console.log("Sending notification:", title, body);
-    
-    if (!("Notification" in window)) {
-        console.log("Notifications not supported");
-        return false;
-    }
-    
-    if (Notification.permission !== "granted") {
-        console.log("Notification permission not granted. Current status:", Notification.permission);
-        return false;
-    }
-    
-    const options = {
-        body: body,
-        icon: "solo_ui.png",
-        badge: "solo_ui.png",
-        vibrate: [200, 100, 200],
-        silent: false,
-        requireInteraction: true,
-        tag: "solo_system_" + Date.now(),
-        renotify: true
-    };
-    
-    try {
-        if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
-            const registration = await navigator.serviceWorker.ready;
-            if (registration && registration.showNotification) {
-                await registration.showNotification(title, options);
-                console.log("Notification sent via service worker");
-                return true;
-            }
-        }
-        
-        const notification = new Notification(title, options);
-        
-        notification.onclick = function() {
-            window.focus();
-            this.close();
-        };
-        
-        notification.onerror = function(e) {
-            console.error("Notification error:", e);
-        };
-        
-        setTimeout(() => {
-            if (notification.close) notification.close();
-        }, 5000);
-        
-        console.log("Notification sent successfully");
-        return true;
-        
-    } catch (error) {
-        console.error("Failed to send notification:", error);
-        return false;
     }
 }
 
