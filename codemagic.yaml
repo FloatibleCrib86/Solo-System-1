@@ -4,29 +4,18 @@ workflows:
     instance_type: mac_mini_m1
     environment:
       node: 18
+      android_sdk: 33
     scripts:
       - name: Install dependencies
         script: |
           npm install -g @capacitor/cli
-          npm install @capacitor/core @capacitor/android
+          npm install @capacitor/core @capacitor/android @capacitor/push-notifications
       
-      - name: Initialize Capacitor
+      - name: Setup Capacitor
         script: |
-          # Create capacitor config
-          cat > capacitor.config.json << EOF
-          {
-            "appId": "com.solosystem.app",
-            "appName": "Solo System",
-            "webDir": "src",
-            "bundledWebRuntime": false
-          }
-          EOF
-          
-          # Initialize and add Android
           npx cap init "Solo System" "com.solosystem.app"
           npx cap add android
-          npx cap copy
-          npx cap sync
+          npx cap sync android
       
       - name: Build APK
         script: |
@@ -45,29 +34,18 @@ workflows:
     instance_type: mac_mini_m1
     environment:
       node: 18
+      xcode: latest
     scripts:
       - name: Install dependencies
         script: |
           npm install -g @capacitor/cli
           npm install @capacitor/core @capacitor/ios
       
-      - name: Initialize Capacitor
+      - name: Setup Capacitor
         script: |
-          # Create capacitor config
-          cat > capacitor.config.json << EOF
-          {
-            "appId": "com.solosystem.app",
-            "appName": "Solo System",
-            "webDir": "src",
-            "bundledWebRuntime": false
-          }
-          EOF
-          
-          # Initialize and add iOS
           npx cap init "Solo System" "com.solosystem.app"
           npx cap add ios
-          npx cap copy
-          npx cap sync
+          npx cap sync ios
       
       - name: Build iOS
         script: |
