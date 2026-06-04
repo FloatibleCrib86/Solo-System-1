@@ -2,5 +2,13 @@
   "appId": "com.solosystem.app",
   "appName": "Solo System",
   "webDir": "src",
-  "bundledWebRuntime": false
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  }
 }
