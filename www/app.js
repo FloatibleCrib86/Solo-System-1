@@ -1965,6 +1965,7 @@ function openNotificationSettings() {
     if (notifPage) {
         notifPage.style.display = "flex";
         renderNotificationsPage();
+        renderWorkoutReminders();
     }
     autoResizeWindow();
 }
@@ -2001,17 +2002,32 @@ function renderWorkoutReminders() {
 function addWorkoutReminder() {
     const timeInput = document.getElementById("newReminderTime");
     const err = document.getElementById("reminderError");
-    if (!timeInput || !timeInput.value) { if (err) err.innerText = "Please select a time."; return; }
+    
+    if (!timeInput || !timeInput.value) {
+        if (err) err.innerText = "Please select a time.";
+        return;
+    }
     if (err) err.innerText = "";
     if (!setupData.reminders) setupData.reminders = [];
     if (!setupData.reminders.includes(timeInput.value)) {
         setupData.reminders.push(timeInput.value);
         setupData.reminders.sort();
         setStorage("setupData", setupData);
+        renderWorkoutReminders();
+        const successMsg = document.createElement("div");
+        successMsg.style.color = "#46eaff";
+        successMsg.style.fontSize = "10px";
+        successMsg.style.marginTop = "5px";
+        successMsg.innerText = `✅ Reminder set for ${timeInput.value}`;
+        document.querySelector(".reminder-add-row").appendChild(successMsg);
+        setTimeout(() => successMsg.remove(), 2000);
+        if (Notification.permission === "default") {
+            requestNotificationAccess();
+        }
+    } else {
+        if (err) err.innerText = "This reminder time already exists.";
     }
     timeInput.value = "";
-    requestNotificationAccess();
-    renderWorkoutReminders();
     autoResizeWindow();
 }
 
@@ -2099,15 +2115,51 @@ function requestNotificationAccess() {
 }
 
 async function sendAppNotification(title, body) {
-    if (!("Notification" in window) || Notification.permission !== "granted") return;
-    const options = { body, tag: `solo-system-${Date.now()}`, renotify: false };
-    if ("serviceWorker" in navigator) {
+    if (!("Notification" in window)) {
+        console.log("Notifications not supported");
+        return;
+    }
+    if (Notification.permission !== "granted") {
+        console.log("Notification permission not granted, requesting...");
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+            console.log("Notification permission denied");
+            return;
+        }
+    }
+    const options = {
+        body: body,
+        icon: "/solo_ui.png",
+        badge: "/solo_ui.png",
+        vibrate: [200, 100, 200],
+        silent: false,
+        requireInteraction: true
+    };
+    if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
         try {
             const registration = await navigator.serviceWorker.ready;
-            if (registration?.showNotification) { registration.showNotification(title, options); return; }
-        } catch (error) {}
+            if (registration && registration.showNotification) {
+                await registration.showNotification(title, options);
+                console.log("Notification sent via service worker");
+                return;
+            }
+        } catch (error) {
+            console.log("Service worker notification failed:", error);
+        }
     }
-    new Notification(title, options);
+    try {
+        const notification = new Notification(title, options);
+        
+        setTimeout(() => notification.close(), 5000);
+        
+        notification.onclick = () => {
+            window.focus();
+            notification.close();
+        };
+        console.log("Notification sent successfully");
+    } catch (error) {
+        console.log("Failed to send notification:", error);
+    }
 }
 
 function ensureMotivationSchedule(forceNew = false) {
@@ -2163,10 +2215,41 @@ function resetReminderDayIfNeeded() {
 function checkReminderNotifications(now = new Date()) {
     if (!setupData.reminders || setupData.reminders.length === 0) return;
     const timeStr = getTimeString(now);
-    if (!setupData.reminders.includes(timeStr) || lastTriggeredReminder === timeStr) return;
-    sendAppNotification("Solo System", "Time to train! Your daily quest awaits.");
-    lastTriggeredReminder = timeStr;
+    
+    if (setupData.reminders.includes(timeStr) && lastTriggeredReminder !== timeStr) {
+        console.log("Reminder triggered for:", timeStr);
+        
+        sendAppNotification("Solo System", "⏰ Time to train! Your daily quest awaits. 💪");
+        
+        lastTriggeredReminder = timeStr;
+        
+        setTimeout(() => {
+            if (lastTriggeredReminder === timeStr) {
+                lastTriggeredReminder = "";
+            }
+        }, 120000);
+    }
 }
+
+// Set up a more reliable notification checker
+let notificationInterval = null;
+
+function startNotificationChecker() {
+    // Clear existing interval
+    if (notificationInterval) {
+        clearInterval(notificationInterval);
+    }
+    
+    // Check every 10 seconds instead of 15
+    notificationInterval = setInterval(() => {
+        checkPhoneNotifications();
+    }, 10000);
+    
+    console.log("Notification checker started");
+}
+
+// Call this when the app loads
+startNotificationChecker();
 
 function checkPhoneNotifications() { resetReminderDayIfNeeded(); checkReminderNotifications(); checkMotivationNotifications(); }
 function scheduleRandomNotifications() { ensureMotivationSchedule(); checkPhoneNotifications(); }
