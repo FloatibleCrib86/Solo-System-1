@@ -10,16 +10,15 @@ workflows:
           npm install -g @capacitor/cli
           npm install @capacitor/core @capacitor/android
       
-      - name: Initialize Capacitor
+      - name: Initialize and Build
         script: |
           # Initialize with webDir = . (root folder)
           npx cap init "Solo System" "com.solosystem.app" --web-dir=.
           npx cap add android
           npx cap copy
           npx cap sync
-      
-      - name: Build APK
-        script: |
+          
+          # Build APK
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
@@ -28,7 +27,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - your-email@gmail.com
+          - chetwinchli@gmail.com
 
   ios-build:
     name: iOS IPA
@@ -41,15 +40,14 @@ workflows:
           npm install -g @capacitor/cli
           npm install @capacitor/core @capacitor/ios
       
-      - name: Initialize Capacitor
+      - name: Initialize and Build
         script: |
           npx cap init "Solo System" "com.solosystem.app" --web-dir=.
           npx cap add ios
           npx cap copy
           npx cap sync
-      
-      - name: Build iOS
-        script: |
+          
+          # Build iOS
           cd ios/App
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Release build
     artifacts:
@@ -57,4 +55,4 @@ workflows:
     publishing:
       email:
         recipients:
-          - your-email@gmail.com
+          - chetwinchli@gmail.com
