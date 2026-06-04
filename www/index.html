@@ -8,14 +8,12 @@
     <link rel="manifest" href="manifest.json" />
     <link rel="stylesheet" href="style.css" />
     <script>
-        // Request notification permission as early as possible
+        window.Capacitor = window.Capacitor || {};
         document.addEventListener('DOMContentLoaded', function() {
             if ('Notification' in window && Notification.permission === 'default') {
                 Notification.requestPermission();
             }
         });
-        
-        // Detect if running in Capacitor native environment
         window.isNative = false;
         document.addEventListener('deviceready', function() {
             window.isNative = true;
