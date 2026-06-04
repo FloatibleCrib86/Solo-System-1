@@ -45,4 +45,4 @@ workflows:
     publishing:
       email:
         recipients:
-          - your-email@gmail.com
+          - chetwinchli@gmail.com
