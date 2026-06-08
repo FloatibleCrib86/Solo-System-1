@@ -57,6 +57,10 @@ let setupData = getStorage("setupData") || {
     goalWeight: "",
     bodyFat: "",
     targetBodyFat: "",
+    age: "",
+    sex: "male",
+    activityLevel: "Moderate",
+    calorieMode: "Cutting",
     weeklyPlan: {}
 };
 
@@ -95,55 +99,210 @@ function getHeight() {
 
 function getCurrentWeight() {
     const latest = data?.weightHistory?.at(-1);
-    return latest ? Number(latest.weight) : Number(setupData.currentWeight) || 0;
+    if (latest && latest.weight) {
+        return Number(latest.weight);
+    }
+    if (setupData.currentWeight && setupData.currentWeight !== "") {
+        return Number(setupData.currentWeight);
+    }
+    return 70;
 }
 
 function getCurrentBodyFat() {
     const latest = data?.fatHistory?.at(-1);
-    return latest ? Number(latest.bodyFat) : Number(setupData.bodyFat) || 0;
+    if (latest && latest.bodyFat) {
+        return Number(latest.bodyFat);
+    }
+    if (setupData.bodyFat && setupData.bodyFat !== "") {
+        return Number(setupData.bodyFat);
+    }
+    const sex = setupData.sex || "male";
+    return sex === "female" ? 22 : 15;
 }
 
 function getTargetBodyFat() {
     return Number(setupData.targetBodyFat) || 0;
 }
 
-function getEstimatedMaintenanceCalories() {
-    return Math.round(getCurrentWeight() * 31);
+function getActivityMultiplier() {
+    const multipliers = {
+        "Sedentary": 1.2,
+        "Light": 1.375,
+        "Moderate": 1.55,
+        "Active": 1.725
+    };
+    return multipliers[setupData.activityLevel || "Moderate"] || 1.55;
 }
 
-function getDeficitFromBodyFat() {
+function calculateBMR() {
+    const weight = getCurrentWeight();
     const bodyFat = getCurrentBodyFat();
-    if (bodyFat > 20) return 700;
-    if (bodyFat > 15) return 500;
-    return 300;
+    
+    if (bodyFat > 0 && bodyFat < 50) {
+        const leanMass = weight * (1 - bodyFat / 100);
+        return 370 + (21.6 * leanMass);
+    } else {
+        const height = getHeight();
+        const age = Number(setupData.age) || 25;
+        const sex = (setupData.sex || "male").toLowerCase();
+        if (sex === "female") {
+            return (10 * weight) + (6.25 * height) - (5 * age) - 161;
+        } else {
+            return (10 * weight) + (6.25 * height) - (5 * age) + 5;
+        }
+    }
 }
 
-function getCutCalories() {
-    return getEstimatedMaintenanceCalories() - getDeficitFromBodyFat();
+function calculateTDEE() {
+    return Math.round(calculateBMR() * getActivityMultiplier());
 }
 
-function getMaintainCalories() {
-    return getEstimatedMaintenanceCalories();
-}
-
-function getGainCalories() {
-    return getEstimatedMaintenanceCalories() + 300;
+function getSelectedCalories() {
+    const tdee = calculateTDEE();
+    const mode = setupData.calorieMode || "Cutting";
+    
+    if (mode === "Bulking") {
+        return tdee + 400;
+    } else if (mode === "Maintaining") {
+        return tdee;
+    } else {
+        return tdee - 500;
+    }
 }
 
 function getCaloriesLeftToday() {
-    return getCutCalories() - getCaloriesEatenToday();
+    return getSelectedCalories() - getCaloriesEatenToday();
 }
 
 function getProteinTargetToday() {
-    return Math.round(getCurrentWeight() * 2.2);
-}
-
-function getCarbsTargetToday() {
-    return Math.round(getCutCalories() * 0.35 / 4);
+    const bodyFat = getCurrentBodyFat();
+    let weight = getCurrentWeight();
+    const activityLevel = setupData.activityLevel || "Moderate";
+    const calorieMode = setupData.calorieMode || "Cutting";
+    
+    if (!weight || weight <= 0) weight = 70;
+    
+    let leanMass = weight;
+    if (bodyFat > 0 && bodyFat < 50) {
+        leanMass = weight * (1 - bodyFat / 100);
+    }
+    
+    const activityProteinMap = {
+        "Sedentary": 1.6,
+        "Light": 1.8,
+        "Moderate": 2.0,
+        "Active": 2.2
+    };
+    let baseProteinPerKg = activityProteinMap[activityLevel] || 2.0;
+    
+    let modeMultiplier = 1.0;
+    if (calorieMode === "Cutting") {
+        modeMultiplier = 1.2;
+    } else if (calorieMode === "Bulking") {
+        modeMultiplier = 1.3;
+    }
+    
+    let proteinTarget = Math.round(leanMass * baseProteinPerKg * modeMultiplier);
+    const minProtein = Math.round(weight * 1.6);
+    return Math.max(proteinTarget, minProtein);
 }
 
 function getFatTargetToday() {
-    return Math.round(getCutCalories() * 0.25 / 9);
+    const selectedCalories = getSelectedCalories();
+    const calorieMode = setupData.calorieMode || "Cutting";
+    
+    let fatPercentage = 0.25;
+    if (calorieMode === "Cutting") {
+        fatPercentage = 0.20;
+    } else if (calorieMode === "Bulking") {
+        fatPercentage = 0.25;
+    }
+    
+    return Math.round((selectedCalories * fatPercentage) / 9);
+}
+
+function getCarbsTargetToday() {
+    const selectedCalories = getSelectedCalories();
+    const proteinCalories = getProteinTargetToday() * 4;
+    const fatCalories = getFatTargetToday() * 9;
+    let remainingCalories = selectedCalories - proteinCalories - fatCalories;
+    
+    const minCarbsCalories = selectedCalories * 0.2;
+    if (remainingCalories < minCarbsCalories) {
+        remainingCalories = minCarbsCalories;
+    }
+    
+    return Math.round(remainingCalories / 4);
+}
+
+function cycleActivityLevel() {
+    const levels = ["Sedentary", "Light", "Moderate", "Active"];
+    const currentIndex = levels.indexOf(setupData.activityLevel || "Moderate");
+    setupData.activityLevel = levels[(currentIndex + 1) % levels.length];
+    setStorage("setupData", setupData);
+    
+    console.log("Activity changed to:", setupData.activityLevel);
+    
+    // Force a complete re-render of the calorie page
+    renderCaloriePage();
+    
+    // Show feedback message
+    const activity = setupData.activityLevel;
+    const proteinValue = getProteinTargetToday();
+    
+    const msg = document.createElement("div");
+    msg.style.position = "fixed";
+    msg.style.bottom = "20px";
+    msg.style.left = "50%";
+    msg.style.transform = "translateX(-50%)";
+    msg.style.backgroundColor = "#46eaff";
+    msg.style.color = "#03101f";
+    msg.style.padding = "8px 16px";
+    msg.style.borderRadius = "8px";
+    msg.style.fontSize = "12px";
+    msg.style.zIndex = "1000";
+    msg.innerHTML = `🏃 Activity: ${activity}<br>💪 Protein: ${proteinValue}g<br>🍚 Carbs: ${getCarbsTargetToday()}g<br>🥑 Fat: ${getFatTargetToday()}g`;
+    document.body.appendChild(msg);
+    setTimeout(() => msg.remove(), 2500);
+    
+    autoResizeWindow();
+}
+
+function cycleCalorieMode() {
+    const modes = ["Cutting", "Maintaining", "Bulking"];
+    const currentIndex = modes.indexOf(setupData.calorieMode || "Cutting");
+    setupData.calorieMode = modes[(currentIndex + 1) % modes.length];
+    setStorage("setupData", setupData);
+    
+    console.log("Mode changed to:", setupData.calorieMode);
+    
+    // Force a complete re-render of the calorie page
+    renderCaloriePage();
+    
+    // Show feedback message
+    const mode = setupData.calorieMode;
+    const proteinValue = getProteinTargetToday();
+    let icon = "";
+    if (mode === "Cutting") icon = "🔥 Cutting (-500 kcal)";
+    if (mode === "Bulking") icon = "💪 Bulking (+400 kcal)";
+    if (mode === "Maintaining") icon = "⚖️ Maintaining";
+    
+    const msg = document.createElement("div");
+    msg.style.position = "fixed";
+    msg.style.bottom = "20px";
+    msg.style.left = "50%";
+    msg.style.transform = "translateX(-50%)";
+    msg.style.backgroundColor = "#46eaff";
+    msg.style.color = "#03101f";
+    msg.style.padding = "8px 16px";
+    msg.style.borderRadius = "8px";
+    msg.style.fontSize = "12px";
+    msg.style.zIndex = "1000";
+    msg.innerHTML = `${icon}<br>💪 Protein: ${proteinValue}g<br>🍚 Carbs: ${getCarbsTargetToday()}g<br>🥑 Fat: ${getFatTargetToday()}g`;
+    document.body.appendChild(msg);
+    setTimeout(() => msg.remove(), 2500);
+    
+    autoResizeWindow();
 }
 
 function getMacroTotalsForView() {
@@ -168,6 +327,8 @@ function closeCalorieDoneOverlay() {
 function loadData() {
     const saved = getStorage("questData") || {};
     const today = getTodayString();
+    const initialWeight = Number(setupData.currentWeight) || 70;
+    const initialBodyFat = Number(setupData.bodyFat) || (setupData.sex === "female" ? 22 : 15);
 
     if (saved.date !== today) {
         return {
@@ -175,8 +336,8 @@ function loadData() {
             completed: {},
             tempTasks: [],
             meals: [],
-            weightHistory: saved.weightHistory || [{ date: today, weight: Number(setupData.currentWeight) || 0 }],
-            fatHistory: saved.fatHistory || [{ date: today, bodyFat: Number(setupData.bodyFat) || 0 }]
+            weightHistory: saved.weightHistory && saved.weightHistory.length ? saved.weightHistory : [{ date: today, weight: initialWeight }],
+            fatHistory: saved.fatHistory && saved.fatHistory.length ? saved.fatHistory : [{ date: today, bodyFat: initialBodyFat }]
         };
     }
 
@@ -185,8 +346,8 @@ function loadData() {
         completed: saved.completed || {},
         tempTasks: saved.tempTasks || [],
         meals: saved.meals || [],
-        weightHistory: saved.weightHistory || [{ date: today, weight: Number(setupData.currentWeight) || 0 }],
-        fatHistory: saved.fatHistory || [{ date: today, bodyFat: Number(setupData.bodyFat) || 0 }]
+        weightHistory: saved.weightHistory && saved.weightHistory.length ? saved.weightHistory : [{ date: today, weight: initialWeight }],
+        fatHistory: saved.fatHistory && saved.fatHistory.length ? saved.fatHistory : [{ date: today, bodyFat: initialBodyFat }]
     };
 }
 
@@ -255,6 +416,8 @@ function renderSetupStep() {
             <input class="setup-input" id="setupHeight" type="number" placeholder="Height in cm *REQUIRED*" value="${setupData.height || ""}" required>
             <input class="setup-input" id="setupCurrentWeight" type="number" placeholder="Current weight in kg *REQUIRED*" value="${setupData.currentWeight || ""}" required>
             <input class="setup-input" id="setupGoalWeight" type="number" placeholder="Goal weight in kg *REQUIRED*" value="${setupData.goalWeight || ""}" required>
+            <input class="setup-input" id="setupAge" type="number" placeholder="Age *REQUIRED*" value="${setupData.age || ""}">
+            <select class="setup-input" id="setupSex"><option value="male" ${setupData.sex === "male" ? "selected" : ""}>Male</option><option value="female" ${setupData.sex === "female" ? "selected" : ""}>Female</option></select>
             <input class="setup-input" id="setupBodyFat" type="number" placeholder="Body Fat % (Optional)" value="${setupData.bodyFat || ""}">
             <input class="setup-input" id="setupTargetBodyFat" type="number" placeholder="Target Body Fat % (Optional)" value="${setupData.targetBodyFat || ""}">
         `;
@@ -305,6 +468,8 @@ function saveCurrentSetupStep() {
         setupData.height = document.getElementById("setupHeight").value.trim();
         setupData.currentWeight = document.getElementById("setupCurrentWeight").value.trim();
         setupData.goalWeight = document.getElementById("setupGoalWeight").value.trim();
+        setupData.age = document.getElementById("setupAge").value.trim();
+        setupData.sex = document.getElementById("setupSex").value;
         setupData.bodyFat = document.getElementById("setupBodyFat").value.trim();
         setupData.targetBodyFat = document.getElementById("setupTargetBodyFat").value.trim();
         return;
@@ -444,13 +609,15 @@ function finishSetup() {
 
     weeklyPlan = setupData.weeklyPlan;
 
+    const initialBodyFat = Number(setupData.bodyFat) || (setupData.sex === "female" ? 22 : 15);
+    
     data = {
         date: getTodayString(),
         completed: {},
         tempTasks: [],
         meals: [],
-        weightHistory: [{ date: getTodayString(), weight: Number(setupData.currentWeight) || 0 }],
-        fatHistory: [{ date: getTodayString(), bodyFat: Number(setupData.bodyFat) || 0 }]
+        weightHistory: [{ date: getTodayString(), weight: Number(setupData.currentWeight) || 70 }],
+        fatHistory: [{ date: getTodayString(), bodyFat: initialBodyFat }]
     };
 
     saveData();
@@ -661,11 +828,18 @@ function getCaloriesEatenForView() {
 }
 
 function getCalorieTargetForView() {
-    return calorieViewMode === "weekly" ? getCutCalories() * 7 : getCutCalories();
+    const selectedCalories = getSelectedCalories();
+    if (calorieViewMode === "weekly") {
+        return selectedCalories * 7;
+    } else {
+        return selectedCalories;
+    }
 }
 
 function getCaloriesLeftForView() {
-    return getCalorieTargetForView() - getCaloriesEatenForView();
+    const target = getCalorieTargetForView();
+    const eaten = getCaloriesEatenForView();
+    return target - eaten;
 }
 
 function getMealQuantity(meal) {
@@ -692,17 +866,43 @@ function setCalorieView(mode) {
 }
 
 function renderCaloriePage() {
-    document.getElementById("idealWeightText").innerText = `${getGoalWeight()} kg`;
-    document.getElementById("calorieHeightText").innerText = `${getHeight()} cm`;
-    document.getElementById("cutCaloriesText").innerText = `${getCutCalories()} kcal`;
-    document.getElementById("maintainCaloriesText").innerText = `${getMaintainCalories()} kcal`;
-    document.getElementById("gainCaloriesText").innerText = `${getGainCalories()} kcal`;
+    const selectedCal = getSelectedCalories();
+    const mode = setupData.calorieMode || "Cutting";
+    
+    document.getElementById("idealWeightText").innerHTML = `${getGoalWeight()} kg`;
+    document.getElementById("calorieHeightText").innerHTML = `${getHeight()} cm`;
+    
+    let modeText = "";
+    if (mode === "Cutting") modeText = "🔥 Cutting Target";
+    else if (mode === "Bulking") modeText = "💪 Bulking Target";
+    else modeText = "⚖️ Maintaining Target";
+    
+    document.getElementById("selectedCaloriesText").innerHTML = `<strong style="color:#46eaff">${selectedCal} kcal</strong> (${modeText})`;
+    
+    const maintainCaloriesEl = document.getElementById("maintainCaloriesText");
+    const cutCaloriesEl = document.getElementById("cutCaloriesText");
+    const gainCaloriesEl = document.getElementById("gainCaloriesText");
+    
+    if (maintainCaloriesEl) maintainCaloriesEl.style.display = "none";
+    if (cutCaloriesEl) cutCaloriesEl.style.display = "none";
+    if (gainCaloriesEl) gainCaloriesEl.style.display = "none";
 
     const calorieBodyFatText = document.getElementById("calorieBodyFatText");
     if (calorieBodyFatText) calorieBodyFatText.innerText = `${getCurrentBodyFat()}%`;
 
     const calorieTargetBodyFatText = document.getElementById("calorieTargetBodyFatText");
     if (calorieTargetBodyFatText) calorieTargetBodyFatText.innerText = `${getTargetBodyFat()}%`;
+
+    const activityBtn = document.getElementById("activityLevelBtn");
+    if (activityBtn) activityBtn.innerText = `🏃 Activity: ${setupData.activityLevel || "Moderate"}`;
+    
+    const modeBtn = document.getElementById("calorieModeBtn");
+    if (modeBtn) {
+        let modeIcon = "⚖️";
+        if (mode === "Cutting") modeIcon = "🔥";
+        if (mode === "Bulking") modeIcon = "💪";
+        modeBtn.innerText = `${modeIcon} Mode: ${mode}`;
+    }
 
     const mealList = document.getElementById("mealList");
     mealList.innerHTML = "";
@@ -735,19 +935,37 @@ function renderCaloriePage() {
         mealList.appendChild(div);
     });
 
-    const caloriesLeft = getCaloriesLeftForView();
-    document.getElementById("caloriesLeftText").innerText = `${caloriesLeft} kcal`;
+    let caloriesTarget, caloriesEaten;
+    
+    if (calorieViewMode === "weekly") {
+        caloriesTarget = selectedCal * 7;
+        const weekMeals = getThisWeekMeals();
+        caloriesEaten = weekMeals.reduce((total, meal) => total + meal.calories, 0);
+    } else {
+        caloriesTarget = selectedCal;
+        caloriesEaten = getCaloriesEatenToday();
+    }
+    
+    const caloriesLeft = caloriesTarget - caloriesEaten;
+    
+    document.getElementById("caloriesLeftText").innerHTML = `${caloriesLeft} kcal`;
     const eatenText = document.getElementById("caloriesEatenText");
-    if (eatenText) eatenText.innerText = `${getCaloriesEatenForView()} / ${getCalorieTargetForView()} kcal`;
+    if (eatenText) eatenText.innerHTML = `${caloriesEaten} / ${caloriesTarget} kcal`;
 
+    // Calculate ALL macros fresh
+    const proteinTarget = getProteinTargetToday();
+    const carbsTarget = getCarbsTargetToday();
+    const fatTarget = getFatTargetToday();
+    
     const macros = getMacroTotalsForView();
     const proteinEl = document.getElementById("proteinText");
     const carbsEl = document.getElementById("carbsText");
     const fatEl = document.getElementById("fatText");
-    if (proteinEl) proteinEl.innerText = `${macros.protein} g / ${getProteinTargetToday()} g`;
-    if (carbsEl) carbsEl.innerText = `${macros.carbs} g / ${getCarbsTargetToday()} g`;
-    if (fatEl) fatEl.innerText = `${macros.fat} g / ${getFatTargetToday()} g`;
-
+    
+    if (proteinEl) proteinEl.innerHTML = `${macros.protein} g / <strong style="color:#46eaff">${proteinTarget} g</strong>`;
+    if (carbsEl) carbsEl.innerHTML = `${macros.carbs} g / <strong style="color:#46eaff">${carbsTarget} g</strong>`;
+    if (fatEl) fatEl.innerHTML = `${macros.fat} g / <strong style="color:#46eaff">${fatTarget} g</strong>`;
+    
     const calorieBox = document.querySelector(".calorie-left-box");
     const addMealBtn = document.getElementById("addMealBtn");
     const frequentMealBtn = document.getElementById("frequentMealBtn");
@@ -1204,7 +1422,6 @@ function fillExerciseModal(task = {}) {
     if (unitSelect) {
         unitSelect.style.display = "block";
         unitSelect.value = t.unit || "reps";
-        // Make sure options are correct
         unitSelect.innerHTML = `
             <option value="reps">Reps</option>
             <option value="seconds">Seconds</option>
@@ -1547,12 +1764,14 @@ function submitModal() {
 
 function renderStatsPage() {
     document.getElementById("dateText").innerText = getTodayString();
-    const latest = data.weightHistory.at(-1);
-    document.getElementById("weightText").innerText = latest ? `${latest.weight} kg` : "No weight yet";
+    
+    const latestWeight = data.weightHistory?.length > 0 ? data.weightHistory[data.weightHistory.length - 1].weight : setupData.currentWeight;
+    document.getElementById("weightText").innerText = latestWeight ? `${latestWeight} kg` : "No weight yet";
+    
     document.getElementById("nameText").innerText = setupData.name || "Unknown";
     document.getElementById("heightText").innerText = setupData.height ? `${setupData.height} cm` : "Unknown";
     document.getElementById("goalWeightText").innerText = setupData.goalWeight ? `${setupData.goalWeight} kg` : "Unknown";
-    document.getElementById("bodyFatText").innerText = setupData.bodyFat ? setupData.bodyFat + "%" : "X";
+    document.getElementById("bodyFatText").innerText = setupData.bodyFat ? setupData.bodyFat + "%" : (setupData.sex === "female" ? "22%" : "15%");
     document.getElementById("targetBodyFatText").innerText = setupData.targetBodyFat ? setupData.targetBodyFat + "%" : "X";
 
     const container = document.getElementById("weeklyFocus");
@@ -1567,34 +1786,66 @@ function renderStatsPage() {
 
     const list = document.getElementById("weightHistoryList");
     list.innerHTML = "";
-    data.weightHistory.slice(-5).forEach((entry, index) => {
-        const div = document.createElement("div");
-        div.className = "task-row";
-        div.innerHTML = `
-            <span>${entry.date}: ${entry.weight} kg</span>
-            <div class="task-actions">
-                <button onclick="editWeight(${index})">Edit</button>
-                <button onclick="removeWeight(${index})">Remove</button>
-            </div>
-        `;
-        list.appendChild(div);
-    });
+    
+    let weightEntries = [];
+    if (data.weightHistory && data.weightHistory.length > 0) {
+        weightEntries = [...data.weightHistory];
+    }
+    
+    const today = getTodayString();
+    const hasTodayWeight = weightEntries.some(w => w.date === today);
+    if (setupData.currentWeight && !hasTodayWeight) {
+        weightEntries.push({ date: today, weight: Number(setupData.currentWeight) });
+    }
+    
+    if (weightEntries.length === 0) {
+        list.innerHTML = `<div class="task-row"><span>No weight entries yet. Add your first weight above.</span></div>`;
+    } else {
+        [...weightEntries].reverse().forEach((entry, idx) => {
+            const originalIndex = weightEntries.length - 1 - idx;
+            const div = document.createElement("div");
+            div.className = "task-row";
+            div.innerHTML = `
+                <span>${entry.date}: ${entry.weight} kg</span>
+                <div class="task-actions">
+                    <button onclick="editWeight(${originalIndex})">Edit</button>
+                    <button onclick="removeWeight(${originalIndex})">Remove</button>
+                </div>
+            `;
+            list.appendChild(div);
+        });
+    }
 
     const fatList = document.getElementById("fatHistoryList");
     fatList.innerHTML = "";
-    if (!data.fatHistory) data.fatHistory = [];
-    data.fatHistory.slice(-5).forEach((entry, index) => {
-        const div = document.createElement("div");
-        div.className = "task-row";
-        div.innerHTML = `
-            <span>${entry.date}: ${entry.bodyFat}%</span>
-            <div class="task-actions">
-                <button onclick="editBodyFat(${index})">Edit</button>
-                <button onclick="removeBodyFat(${index})">Remove</button>
-            </div>
-        `;
-        fatList.appendChild(div);
-    });
+    
+    let fatEntries = [];
+    if (data.fatHistory && data.fatHistory.length > 0) {
+        fatEntries = [...data.fatHistory];
+    }
+    
+    const hasTodayFat = fatEntries.some(f => f.date === today);
+    if (setupData.bodyFat && !hasTodayFat) {
+        fatEntries.push({ date: today, bodyFat: Number(setupData.bodyFat) });
+    }
+    
+    if (fatEntries.length === 0) {
+        fatList.innerHTML = `<div class="task-row"><span>No body fat entries yet. Add your first entry above.</span></div>`;
+    } else {
+        [...fatEntries].reverse().forEach((entry, idx) => {
+            const originalIndex = fatEntries.length - 1 - idx;
+            const div = document.createElement("div");
+            div.className = "task-row";
+            div.innerHTML = `
+                <span>${entry.date}: ${entry.bodyFat}%</span>
+                <div class="task-actions">
+                    <button onclick="editBodyFat(${originalIndex})">Edit</button>
+                    <button onclick="removeBodyFat(${originalIndex})">Remove</button>
+                </div>
+            `;
+            fatList.appendChild(div);
+        });
+    }
 
     drawWeightChart();
     drawFatChart();
@@ -1698,6 +1949,7 @@ function enableDragScroll(slider) {
 function drawWeightChart() {
     const canvas = document.getElementById("weightChart");
     if (!canvas) return;
+    
     const parentBox = canvas.closest(".mini-chart-box") || canvas.parentElement;
     let scrollWrapper = parentBox.querySelector(".canvas-scroll-wrapper");
     if (!scrollWrapper) {
@@ -1710,45 +1962,123 @@ function drawWeightChart() {
         scrollWrapper.appendChild(canvas);
         enableDragScroll(scrollWrapper);
     }
-    const weights = data.weightHistory || [];
+    
+    let weights = [];
+    
+    if (data.weightHistory && data.weightHistory.length > 0) {
+        weights = [...data.weightHistory];
+    }
+    
+    const today = getTodayString();
+    const hasTodayWeight = weights.some(w => w.date === today);
+    if (setupData.currentWeight && !hasTodayWeight) {
+        weights.push({ date: today, weight: Number(setupData.currentWeight) });
+    }
+    
+    weights.sort((a, b) => new Date(a.date.split('/').reverse().join('-')) - new Date(b.date.split('/').reverse().join('-')));
+    
+    if (weights.length === 0) {
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "10px Arial";
+        ctx.fillText("No weight data", canvas.width/2 - 40, canvas.height/2);
+        return;
+    }
+    
     const padding = 25, rightBuffer = 50;
     const visibleWidth = scrollWrapper.clientWidth || 200;
-    const pointSpacing = (visibleWidth - padding * 2) / 4;
+    
+    let pointSpacing;
+    if (weights.length === 1) {
+        pointSpacing = (visibleWidth - padding * 2) / 2;
+    } else {
+        pointSpacing = (visibleWidth - padding * 2) / 4;
+    }
+    
     const totalRequiredWidth = padding + (Math.max(0, weights.length - 1) * pointSpacing) + rightBuffer;
     canvas.width = Math.max(visibleWidth, totalRequiredWidth);
     canvas.height = canvas.clientHeight || 150;
     canvas.style.minWidth = canvas.width + "px";
     canvas.style.display = "block";
+    
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (weights.length < 2) return;
+    
     const chartHeight = canvas.height - padding * 2;
     const minWeight = Math.min(...weights.map(w => w.weight)) - 1;
     const maxWeight = Math.max(...weights.map(w => w.weight)) + 1;
-    function x(i) { return padding + (i * pointSpacing); }
+    
+    function x(i) { 
+        if (weights.length === 1) {
+            return padding + pointSpacing;
+        }
+        return padding + (i * pointSpacing); 
+    }
     function y(w) { return padding + ((maxWeight - w) / (maxWeight - minWeight)) * chartHeight; }
-    ctx.strokeStyle = "#46eaff";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    weights.forEach((p, i) => { i === 0 ? ctx.moveTo(x(i), y(p.weight)) : ctx.lineTo(x(i), y(p.weight)); });
-    ctx.stroke();
-    ctx.fillStyle = "#ffffff";
+    
+    if (weights.length > 1) {
+        ctx.strokeStyle = "#46eaff";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        weights.forEach((p, i) => {
+            if (i === 0) ctx.moveTo(x(i), y(p.weight));
+            else ctx.lineTo(x(i), y(p.weight));
+        });
+        ctx.stroke();
+    }
+    
     weights.forEach((p, i) => {
         ctx.beginPath();
-        ctx.arc(x(i), y(p.weight), 3, 0, Math.PI * 2);
+        ctx.arc(x(i), y(p.weight), 5, 0, Math.PI * 2);
+        ctx.fillStyle = "#46eaff";
         ctx.fill();
+        
         ctx.fillStyle = "#ffffff";
-        ctx.fillText(`${p.weight}kg`, x(i) - 12, y(p.weight) - 8);
+        ctx.font = "bold 10px Arial";
+        ctx.fillText(`${p.weight}kg`, x(i) - 15, y(p.weight) - 8);
+        
+        if (weights.length > 1) {
+            ctx.fillStyle = "#b8c7d9";
+            ctx.font = "8px Arial";
+            const dateParts = p.date.split('/');
+            const shortDate = `${dateParts[0]}/${dateParts[1]}`;
+            ctx.fillText(shortDate, x(i) - 12, y(p.weight) + 12);
+        }
     });
-    scrollWrapper.scrollLeft = scrollWrapper.scrollWidth;
+    
+    if (scrollWrapper.scrollWidth > scrollWrapper.clientWidth) {
+        scrollWrapper.scrollLeft = scrollWrapper.scrollWidth;
+    }
 }
 
 function drawFatChart() {
     const canvas = document.getElementById("fatChart");
     if (!canvas) return;
+    
     const parentBox = canvas.closest(".mini-chart-box") || canvas.parentElement;
-    if (!getCurrentBodyFat()) { parentBox.style.display = "none"; return; }
-    else { parentBox.style.display = ""; }
+    
+    let fats = [];
+    
+    if (data.fatHistory && data.fatHistory.length > 0) {
+        fats = [...data.fatHistory];
+    }
+    
+    const today = getTodayString();
+    const hasTodayFat = fats.some(f => f.date === today);
+    if (setupData.bodyFat && !hasTodayFat) {
+        fats.push({ date: today, bodyFat: Number(setupData.bodyFat) });
+    }
+    
+    fats.sort((a, b) => new Date(a.date.split('/').reverse().join('-')) - new Date(b.date.split('/').reverse().join('-')));
+    
+    if (fats.length === 0 || !getCurrentBodyFat()) { 
+        parentBox.style.display = "none"; 
+        return; 
+    } else { 
+        parentBox.style.display = ""; 
+    }
+    
     let scrollWrapper = parentBox.querySelector(".canvas-scroll-wrapper");
     if (!scrollWrapper) {
         scrollWrapper = document.createElement("div");
@@ -1760,38 +2090,71 @@ function drawFatChart() {
         scrollWrapper.appendChild(canvas);
         enableDragScroll(scrollWrapper);
     }
-    const fats = data.fatHistory || [];
-    const padding = 20, rightBuffer = 40;
+    
+    const padding = 25, rightBuffer = 50;
     const visibleWidth = scrollWrapper.clientWidth || 200;
-    const pointSpacing = fats.length > 1 ? (visibleWidth - padding * 2) / 4 : 0;
+    
+    let pointSpacing;
+    if (fats.length === 1) {
+        pointSpacing = (visibleWidth - padding * 2) / 2;
+    } else {
+        pointSpacing = (visibleWidth - padding * 2) / 4;
+    }
+    
     const totalRequiredWidth = padding + (Math.max(0, fats.length - 1) * pointSpacing) + rightBuffer;
     canvas.width = Math.max(visibleWidth, totalRequiredWidth);
     canvas.height = canvas.clientHeight || 150;
     canvas.style.minWidth = canvas.width + "px";
     canvas.style.display = "block";
+    
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
     const chartHeight = canvas.height - padding * 2;
-    const minFat = fats.length > 0 ? Math.min(...fats.map(f => f.bodyFat)) - 1 : 0;
-    const maxFat = fats.length > 0 ? Math.max(...fats.map(f => f.bodyFat)) + 1 : 100;
-    function x(i) { return padding + (i * pointSpacing); }
+    const minFat = Math.min(...fats.map(f => f.bodyFat)) - 1;
+    const maxFat = Math.max(...fats.map(f => f.bodyFat)) + 1;
+    
+    function x(i) { 
+        if (fats.length === 1) {
+            return padding + pointSpacing;
+        }
+        return padding + (i * pointSpacing); 
+    }
     function y(f) { return padding + ((maxFat - f) / (maxFat - minFat)) * chartHeight; }
+    
     if (fats.length > 1) {
         ctx.strokeStyle = "#46eaff";
         ctx.lineWidth = 2;
         ctx.beginPath();
-        fats.forEach((p, i) => { i === 0 ? ctx.moveTo(x(i), y(p.bodyFat)) : ctx.lineTo(x(i), y(p.bodyFat)); });
+        fats.forEach((p, i) => {
+            if (i === 0) ctx.moveTo(x(i), y(p.bodyFat));
+            else ctx.lineTo(x(i), y(p.bodyFat));
+        });
         ctx.stroke();
     }
-    ctx.fillStyle = "#ffffff";
+    
     fats.forEach((p, i) => {
         ctx.beginPath();
-        ctx.arc(x(i), y(p.bodyFat), 3, 0, Math.PI * 2);
+        ctx.arc(x(i), y(p.bodyFat), 5, 0, Math.PI * 2);
+        ctx.fillStyle = "#46eaff";
         ctx.fill();
+        
         ctx.fillStyle = "#ffffff";
-        ctx.fillText(`${p.bodyFat}%`, x(i) - 10, y(p.bodyFat) - 7);
+        ctx.font = "bold 10px Arial";
+        ctx.fillText(`${p.bodyFat}%`, x(i) - 15, y(p.bodyFat) - 8);
+        
+        if (fats.length > 1) {
+            ctx.fillStyle = "#b8c7d9";
+            ctx.font = "8px Arial";
+            const dateParts = p.date.split('/');
+            const shortDate = `${dateParts[0]}/${dateParts[1]}`;
+            ctx.fillText(shortDate, x(i) - 12, y(p.bodyFat) + 12);
+        }
     });
-    scrollWrapper.scrollLeft = scrollWrapper.scrollWidth;
+    
+    if (scrollWrapper.scrollWidth > scrollWrapper.clientWidth) {
+        scrollWrapper.scrollLeft = scrollWrapper.scrollWidth;
+    }
 }
 
 function updateTimer() {
@@ -1983,9 +2346,9 @@ function confirmFullReset() {
     localStorage.removeItem("soloSystem_public_weeklyPlan");
     localStorage.removeItem("soloSystem_public_questData");
     setupStep = 0;
-    setupData = { complete: false, name: "", height: "", currentWeight: "", goalWeight: "", bodyFat: "", targetBodyFat: "", weeklyPlan: {} };
+    setupData = { complete: false, name: "", height: "", currentWeight: "", goalWeight: "", bodyFat: "", targetBodyFat: "", age: "", sex: "male", activityLevel: "Moderate", calorieMode: "Cutting", weeklyPlan: {} };
     weeklyPlan = defaultWeeklyPlan;
-    data = { date: getTodayString(), completed: {}, tempTasks: [], meals: [], weightHistory: [] };
+    data = { date: getTodayString(), completed: {}, tempTasks: [], meals: [], weightHistory: [], fatHistory: [] };
     document.getElementById("statsPage").style.display = "none";
     document.getElementById("caloriePage").style.display = "none";
     document.getElementById("tasksPage").style.display = "none";
@@ -2022,4 +2385,41 @@ else {
     checkRehabStatus();
     render();
     updateTimer();
+}
+
+function forceProteinUpdate() {
+    const mode = setupData.calorieMode || "Cutting";
+    const activity = setupData.activityLevel || "Moderate";
+    const bodyFat = getCurrentBodyFat();
+    const weight = getCurrentWeight();
+    
+    let leanMass = weight;
+    if (bodyFat > 0 && bodyFat < 50) {
+        leanMass = weight * (1 - bodyFat / 100);
+    }
+    
+    const activityMap = {
+        "Sedentary": 1.6,
+        "Light": 1.8,
+        "Moderate": 2.0,
+        "Active": 2.2
+    };
+    let baseProtein = activityMap[activity] || 2.0;
+    
+    let modeMultiplier = 1.0;
+    if (mode === "Cutting") modeMultiplier = 1.2;
+    if (mode === "Bulking") modeMultiplier = 1.3;
+    
+    const proteinTarget = Math.round(leanMass * baseProtein * modeMultiplier);
+    
+    // Direct DOM update
+    const proteinEl = document.getElementById("proteinText");
+    if (proteinEl) {
+        proteinEl.innerHTML = `0 g / <strong style="color:#46eaff">${proteinTarget} g</strong>`;
+        console.log("Direct update - Protein set to:", proteinTarget);
+        return proteinTarget;
+    } else {
+        console.error("proteinText element NOT FOUND in DOM!");
+        return null;
+    }
 }

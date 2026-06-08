@@ -115,14 +115,21 @@
                 <button class="calorie-toggle-btn" data-mode="weekly" onclick="setCalorieView('weekly')">Weekly</button>
             </div>
             <p class="subtitle" id="calorieViewLabel"></p>
+            <div class="calorie-action-row">
+                <button id="activityLevelBtn" class="page-btn" onclick="cycleActivityLevel()">Activity: Moderate</button>
+                <button id="calorieModeBtn" class="page-btn" onclick="cycleCalorieMode()">Mode: Cutting</button>
+            </div>
             <div class="stat-box">
-                <p><strong>Target Weight:</strong> <span id="idealWeightText"></span></p>
-                <p><strong>Height:</strong> <span id="calorieHeightText"></span></p>
-                <p><strong>Body Fat:</strong> <span id="calorieBodyFatText"></span></p>
-                <p><strong>Target Body Fat:</strong> <span id="calorieTargetBodyFatText"></span></p>
-                <p><strong>Cut:</strong> <span id="cutCaloriesText"></span></p>
-                <p><strong>Maintain:</strong> <span id="maintainCaloriesText"></span></p>
-                <p><strong>Gain:</strong> <span id="gainCaloriesText"></span></p>
+                <div class="stat-box">
+                    <p><strong>Target Weight:</strong> <span id="idealWeightText"></span></p>
+                    <p><strong>Height:</strong> <span id="calorieHeightText"></span></p>
+                    <p><strong>Body Fat:</strong> <span id="calorieBodyFatText"></span></p>
+                    <p><strong>Target Body Fat:</strong> <span id="calorieTargetBodyFatText"></span></p>
+                    <p><strong>🎯 Daily Target:</strong> <span id="selectedCaloriesText"></span></p>
+                    <span id="maintainCaloriesText" style="display:none"></span>
+                    <span id="cutCaloriesText" style="display:none"></span>
+                    <span id="gainCaloriesText" style="display:none"></span>
+                </div>
             </div>
             <div class="calorie-action-row">
                 <button id="addMealBtn" class="page-btn" onclick="openMealModal()">
