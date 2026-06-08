@@ -1,0 +1,868 @@
+body {
+    margin: 0;
+    background: transparent;
+    overflow: hidden;
+    color: white;
+    font-family: Arial, sans-serif;
+}
+
+/* MAIN PANEL */
+.panel {
+    width: 275px;
+    min-height: 575px;
+    height: fit-content;
+    margin: 8px;
+    padding: 10px;
+    border: 1.5px solid #46eaff;
+    border-radius: 12px;
+    background: linear-gradient(rgba(3, 10, 22, 0.9), rgba(3, 10, 22, 0.94)), url("solo_ui.png");
+    background-size: cover;
+    background-position: center;
+    box-shadow: 0 0 18px #00d9ff;
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+    position: relative;
+}
+
+/* DRAG BAR */
+.drag-bar {
+    -webkit-app-region: drag;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 10px;
+    margin-bottom: 6px;
+    color: #74f3ff;
+    letter-spacing: 1px;
+}
+
+.drag-bar button {
+    -webkit-app-region: no-drag;
+    background: none;
+    border: 1px solid #46eaff;
+    color: white;
+    border-radius: 4px;
+    font-size: 10px;
+    cursor: pointer;
+}
+
+/* PAGES */
+#tasksPage, #statsPage, #caloriePage, #rehabPage, #frequentMealPage {
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+}
+
+#tasksPage { display: flex; }
+#statsPage { display: none; }
+#caloriePage { display: none; }
+#rehabPage { display: none; }
+#frequentMealPage { display: none; }
+
+/* TITLES */
+h1 {
+    text-align: center;
+    font-size: 14px;
+    margin: 4px 0;
+    color: #9ff7ff;
+    text-shadow: 0 0 10px #00eaff;
+}
+
+h2 {
+    font-size: 12px;
+    color: #ffffff;
+    margin: 8px 0 4px;
+}
+
+/* SUBTITLE */
+.subtitle {
+    text-align: center;
+    font-size: 10px;
+    margin-bottom: 6px;
+    color: #b8c7d9;
+}
+
+/* CONTENT BOXES */
+#focus, .stat-box, .week-focus-item, .task, .meal-item {
+    font-size: 10px;
+    margin: 3px 0;
+    padding: 6px;
+    border: 1px solid rgba(70, 234, 255, 0.3);
+    border-radius: 6px;
+    background: rgba(0, 217, 255, 0.08);
+}
+
+/* CHECKBOX */
+.task input {
+    transform: scale(0.75);
+    margin-right: 5px;
+}
+
+/* MAIN CONTENT AREA */
+#tasks {
+    flex: 1;
+    min-height: 0;
+}
+
+#weeklyFocus, #mealList, #rehabContent {
+    flex: 0;
+    min-height: 0;
+}
+
+/* BUTTONS */
+.controls button, .page-btn {
+    padding: 6px;
+    font-size: 10px;
+    background: rgba(0, 217, 255, 0.22);
+    border: 1px solid #46eaff;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.controls button { flex: 1; }
+.page-btn { width: 100%; margin-top: 6px; flex-shrink: 0; }
+
+.page-btn:hover, .controls button:hover, .modal-buttons button:hover,
+.task-actions button:hover, .week-focus-item button:hover, .setup-task button:hover {
+    background: rgba(0, 217, 255, 0.34);
+}
+
+/* TIMER */
+#timer {
+    margin-top: 6px;
+    text-align: center;
+    font-size: 12px;
+    color: #74f3ff;
+    font-weight: bold;
+}
+
+/* GRAPH */
+canvas {
+    width: 100%;
+    height: 115px;
+    flex-shrink: 0;
+    border: 1px solid rgba(70, 234, 255, 0.25);
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.25);
+}
+
+.chart-row {
+    display: flex;
+    gap: 6px;
+    width: 100%;
+}
+
+.mini-chart-box {
+    flex: 1;
+    min-width: 0;
+}
+
+.mini-chart-box h2 {
+    text-align: center;
+    font-size: 10px;
+    margin: 4px 0;
+    color: #ffffff;
+}
+
+.mini-chart-box canvas {
+    width: 100%;
+    height: 100px;
+}
+
+/* COMPLETED OVERLAY */
+#completedOverlay {
+    display: none;
+    position: absolute;
+    inset: 38px 10px 10px 10px;
+    border: 1.5px solid #46eaff;
+    border-radius: 12px;
+    background: rgba(3, 10, 22, 0.96);
+    box-shadow: 0 0 20px #00d9ff;
+    z-index: 20;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+#completedOverlay h1 {
+    font-size: 22px;
+    color: #7cff9b;
+    text-shadow: 0 0 12px #7cff9b;
+}
+
+#completedOverlay p {
+    font-size: 11px;
+    color: #b8c7d9;
+}
+
+#addTempBtn { width: 100%; }
+
+/* MODAL */
+#inputModal {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    background: rgba(0, 0, 0, 0.72);
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-box {
+    width: 220px;
+    padding: 12px;
+    border: 1.5px solid #46eaff;
+    border-radius: 10px;
+    background: rgba(3, 10, 22, 0.98);
+    box-shadow: 0 0 18px #00d9ff;
+}
+
+.modal-box input, .modal-box select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 7px;
+    margin-top: 8px;
+    background: rgba(0, 217, 255, 0.1);
+    border: 1px solid #46eaff;
+    border-radius: 6px;
+    color: white;
+    outline: none;
+}
+
+.modal-box input:focus, .modal-box select:focus {
+    box-shadow: 0 0 8px rgba(70, 234, 255, 0.65);
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.modal-buttons button {
+    flex: 1;
+    padding: 6px;
+    font-size: 10px;
+    background: rgba(0, 217, 255, 0.22);
+    border: 1px solid #46eaff;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+#modalError {
+    font-size: 9px;
+    color: #ff7777;
+    min-height: 12px;
+}
+
+/* TASK ROWS */
+.task-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+}
+
+.task-row label { flex: 1; }
+
+.task-actions {
+    display: flex;
+    gap: 3px;
+}
+
+.task-actions button {
+    font-size: 8px;
+    padding: 3px 4px;
+    background: rgba(0, 217, 255, 0.18);
+    border: 1px solid #46eaff;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.clickable { cursor: pointer; }
+.clickable:hover { background: rgba(0, 217, 255, 0.18); }
+
+.day-editor-title {
+    font-size: 11px;
+    padding: 6px;
+    margin-bottom: 6px;
+    border: 1px solid rgba(70, 234, 255, 0.35);
+    border-radius: 6px;
+    background: rgba(0, 217, 255, 0.12);
+}
+
+.week-focus-item button {
+    font-size: 8px;
+    padding: 3px 4px;
+    background: rgba(0, 217, 255, 0.18);
+    border: 1px solid #46eaff;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* SETUP OVERLAY */
+#setupOverlay {
+    display: none;
+    position: absolute;
+    inset: 10px;
+    z-index: 100;
+    padding: 12px;
+    border: 1.5px solid #46eaff;
+    border-radius: 12px;
+    background: linear-gradient(rgba(3, 10, 22, 0.96), rgba(3, 10, 22, 0.98)), url("solo_ui.png");
+    background-size: cover;
+    background-position: center;
+    box-shadow: 0 0 22px #00d9ff;
+    flex-direction: column;
+}
+
+.setup-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 7px;
+    margin: 5px 0;
+    background: rgba(0, 217, 255, 0.1);
+    border: 1px solid #46eaff;
+    border-radius: 6px;
+    color: white;
+    outline: none;
+}
+
+.setup-input:focus {
+    box-shadow: 0 0 8px rgba(70, 234, 255, 0.65);
+}
+
+.setup-task {
+    display: flex;
+    gap: 5px;
+    margin: 5px 0;
+}
+
+.setup-task input, .setup-task select {
+    flex: 1;
+}
+
+.setup-task button {
+    padding: 4px 6px;
+    font-size: 9px;
+    background: rgba(0, 217, 255, 0.2);
+    border: 1px solid #46eaff;
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+/* CALORIES */
+.calorie-left-box {
+    margin-top: auto;
+    text-align: center;
+    padding: 8px;
+    border: 1.5px solid #46eaff;
+    border-radius: 8px;
+    background: rgba(0, 217, 255, 0.12);
+    box-shadow: 0 0 10px #00d9ff;
+}
+
+.calorie-left-box p {
+    font-size: 10px;
+    margin: 0;
+    color: #b8c7d9;
+}
+
+.calorie-left-box h1 {
+    font-size: 24px;
+    margin: 4px 0;
+}
+
+/* DANGER BUTTON */
+.danger-btn {
+    border-color: #ff5c5c;
+    color: #ffb3b3;
+    background: rgba(255, 92, 92, 0.12);
+}
+
+.danger-btn:hover {
+    background: rgba(255, 92, 92, 0.22);
+}
+
+/* ELECTRON DRAG FIX */
+#setupOverlay, #setupOverlay *, #inputModal, #inputModal *,
+#modalInput, #modalInputCalories {
+    -webkit-app-region: no-drag;
+}
+
+.day-editor-title button {
+    font-size: 8px;
+    padding: 3px 4px;
+    margin-top: 5px;
+    background: rgba(0, 217, 255, 0.18);
+    border: 1px solid #46eaff;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.day-editor-title button:hover {
+    background: rgba(0, 217, 255, 0.34);
+}
+
+#weightHistoryList .task-row, #fatHistoryList .task-row {
+    font-size: 10px;
+    margin: 3px 0;
+    padding: 6px;
+    border: 1px solid rgba(70, 234, 255, 0.3);
+    border-radius: 6px;
+    background: rgba(0, 217, 255, 0.08);
+}
+
+#weightHistoryList span, #fatHistoryList span {
+    color: white;
+}
+
+.bottom-actions {
+    margin-top: auto;
+}
+
+.calorie-left-box.calorie-over {
+    border-color: #ff4d4d;
+    background: rgba(255, 50, 50, 0.18);
+    box-shadow: 0 0 14px #ff4d4d;
+}
+
+.calorie-left-box.calorie-over h1 {
+    color: #ff7777;
+    text-shadow: 0 0 10px #ff4d4d;
+}
+
+.locked-btn {
+    opacity: 0.45;
+    cursor: not-allowed;
+    border-color: #ff5c5c;
+    color: #ffb3b3;
+}
+
+#calorieDoneOverlay {
+    display: none;
+    position: absolute;
+    inset: 38px 10px 10px 10px;
+    z-index: 40;
+    border: 1.5px solid #ff4d4d;
+    border-radius: 12px;
+    background: rgba(20, 3, 3, 0.96);
+    box-shadow: 0 0 20px #ff4d4d;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 12px;
+}
+
+#calorieDoneOverlay h1 {
+    font-size: 20px;
+    color: #ff7777;
+    text-shadow: 0 0 12px #ff4d4d;
+}
+
+#calorieDoneOverlay p {
+    font-size: 11px;
+    color: #ffd0d0;
+}
+
+.overlay-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: none;
+    border: 1px solid #ff7777;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* REHAB */
+.rehab-option-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.rehab-option-btn {
+    padding: 8px;
+    font-size: 10px;
+    background: rgba(0, 217, 255, 0.16);
+    border: 1px solid #46eaff;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.rehab-option-btn:hover {
+    background: rgba(0, 217, 255, 0.34);
+}
+
+.rehab-warning {
+    margin-top: 8px;
+    padding: 8px;
+    border: 1px solid #ff7777;
+    border-radius: 6px;
+    background: rgba(255, 70, 70, 0.12);
+    color: #ffcccc;
+    font-size: 10px;
+}
+
+.rehab-task-preview {
+    font-size: 10px;
+    margin: 4px 0;
+    padding: 6px;
+    border: 1px solid rgba(70, 234, 255, 0.3);
+    border-radius: 6px;
+    background: rgba(0, 217, 255, 0.08);
+}
+
+#rehabContent {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+#rehabPage {
+    gap: 6px;
+}
+
+#rehabPage .stat-box {
+    margin-bottom: 4px;
+}
+
+.rehab-option-grid {
+    flex: 0;
+    margin-top: 4px;
+}
+
+.rehab-task-preview {
+    flex-shrink: 0;
+}
+
+/* MOBILE WEB OVERRIDES */
+.mobile-web {
+    background: #03101f;
+    overflow-y: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+}
+
+.mobile-web .panel {
+    width: min(430px, calc(100vw - 24px));
+    min-height: calc(100dvh - 24px);
+    margin: 12px auto;
+    box-sizing: border-box;
+    overflow: visible;
+}
+
+.mobile-web .drag-bar {
+    -webkit-app-region: no-drag;
+    justify-content: center;
+    font-size: 12px;
+}
+
+.mobile-web .drag-bar button {
+    display: none;
+}
+
+.mobile-web h1 {
+    font-size: 18px;
+}
+
+.mobile-web h2 {
+    font-size: 14px;
+}
+
+.mobile-web .subtitle, .mobile-web #focus, .mobile-web .stat-box,
+.mobile-web .week-focus-item, .mobile-web .task, .mobile-web .meal-item,
+.mobile-web .rehab-task-preview {
+    font-size: 13px;
+}
+
+.mobile-web .page-btn, .mobile-web .modal-buttons button,
+.mobile-web .rehab-option-btn {
+    min-height: 42px;
+    font-size: 13px;
+}
+
+.mobile-web .task-actions button, .mobile-web .week-focus-item button,
+.mobile-web .day-editor-title button {
+    font-size: 11px;
+    padding: 6px 8px;
+}
+
+.mobile-web .modal-box {
+    width: min(340px, calc(100vw - 48px));
+}
+
+.mobile-web .modal-box input, .mobile-web .setup-input {
+    min-height: 40px;
+    font-size: 16px;
+}
+
+.mobile-web #setupOverlay, .mobile-web #inputModal,
+.mobile-web #completedOverlay, .mobile-web #calorieDoneOverlay {
+    position: fixed;
+}
+
+.mobile-web .chart-row {
+    gap: 8px;
+}
+
+@media (max-width: 360px) {
+    .mobile-web .chart-row {
+        flex-direction: column;
+    }
+}
+
+/* EXERCISE TASKS */
+.exercise-task {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.exercise-fields {
+    display: grid;
+    grid-template-columns: 1.5fr 0.7fr 0.7fr 1.2fr;
+    gap: 4px;
+}
+
+.exercise-fields input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 5px;
+    font-size: 9px;
+    background: rgba(0, 217, 255, 0.1);
+    border: 1px solid rgba(70, 234, 255, 0.45);
+    border-radius: 5px;
+    color: white;
+    outline: none;
+}
+
+.exercise-fields input:focus {
+    box-shadow: 0 0 6px rgba(70, 234, 255, 0.55);
+}
+
+/* CALORIE TOGGLE */
+.calorie-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin: 6px 0;
+}
+
+.calorie-toggle-btn {
+    padding: 6px;
+    font-size: 10px;
+    background: rgba(0, 217, 255, 0.12);
+    border: 1px solid rgba(70, 234, 255, 0.45);
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.calorie-toggle-btn.active {
+    background: rgba(0, 217, 255, 0.35);
+    box-shadow: 0 0 10px rgba(0, 217, 255, 0.45);
+}
+
+@media (max-width: 430px) {
+    .exercise-fields {
+        grid-template-columns: 1fr 1fr;
+    }
+    .exercise-name-input {
+        grid-column: span 2;
+    }
+}
+
+/* SETUP EXERCISE ROWS */
+.setup-exercise-row {
+    display: grid;
+    grid-template-columns: 1.5fr 0.65fr 0.65fr 0.65fr 1fr auto;
+    gap: 5px;
+    align-items: center;
+}
+
+.setup-exercise-row .setup-input, .setup-exercise-row .setup-task-unit {
+    min-width: 0;
+    margin: 3px 0;
+    padding: 6px;
+    font-size: 9px;
+}
+
+.setup-task-unit {
+    background: rgba(0, 217, 255, 0.1);
+    border: 1px solid #46eaff;
+    border-radius: 6px;
+    color: white;
+}
+
+.setup-exercise-row button {
+    height: 28px;
+}
+
+@media (max-width: 420px) {
+    .setup-exercise-row {
+        grid-template-columns: 1fr 0.65fr 0.65fr auto;
+    }
+    .setup-exercise-row .setup-task-weight {
+        grid-column: 1 / -2;
+    }
+}
+
+.setup-task.setup-exercise-row {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1.2fr) 55px 70px 55px 70px 24px !important;
+    gap: 4px !important;
+    align-items: center !important;
+    margin: 5px 0 !important;
+}
+
+.setup-task.setup-exercise-row .setup-input,
+.setup-task.setup-exercise-row .setup-task-unit {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 5px 4px !important;
+    font-size: 8.5px !important;
+}
+
+.setup-task.setup-exercise-row button {
+    width: 24px !important;
+    min-width: 24px !important;
+    height: 26px !important;
+    padding: 0 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@media (max-width: 420px) {
+    .setup-task.setup-exercise-row {
+        grid-template-columns: minmax(0, 1.1fr) 50px 65px 50px 60px 22px !important;
+        gap: 3px !important;
+    }
+    .setup-task.setup-exercise-row .setup-input,
+    .setup-task.setup-exercise-row .setup-task-unit {
+        font-size: 8px !important;
+        padding: 5px 3px !important;
+    }
+    .setup-task.setup-exercise-row button {
+        width: 22px !important;
+        min-width: 22px !important;
+    }
+}
+
+/* CALORIE ACTION ROW */
+.calorie-action-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.calorie-action-row .page-btn {
+    margin-top: 6px;
+}
+
+/* FREQUENT MEALS */
+.frequent-meal-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.frequent-meal-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.frequent-qty-input {
+    width: 64px;
+    padding: 6px;
+    background: rgba(0, 217, 255, 0.1);
+    border: 1px solid #46eaff;
+    border-radius: 6px;
+    color: white;
+}
+
+.frequent-actions {
+    margin-top: 6px;
+    justify-content: flex-end;
+}
+
+.macro-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 11px;
+    border-bottom: 1px solid rgba(70, 234, 255, 0.1);
+}
+
+.macro-row:last-child {
+    border-bottom: none;
+}
+
+.macro-input {
+    display: none;
+}
+
+.mini-chart-box, .chart-box, .canvas-scroll-wrapper {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+}
+
+.mini-chart-box::-webkit-scrollbar, .chart-box::-webkit-scrollbar,
+.canvas-scroll-wrapper::-webkit-scrollbar {
+    display: none;
+}
+
+/* Fix for unit selector dropdown in modals */
+#modalInputUnit {
+    display: none;
+    width: 100%;
+    margin-top: 8px;
+    padding: 7px;
+    background: rgba(0, 217, 255, 0.1);
+    border: 1px solid #46eaff;
+    border-radius: 6px;
+    color: white;
+    font-size: 10px;
+    cursor: pointer;
+}
+
+#modalInputUnit option {
+    background: #03101f;
+    color: white;
+}
+
+/* Fix for the exercise modal layout */
+.modal-box select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 7px;
+    margin-top: 8px;
+    background: rgba(0, 217, 255, 0.1);
+    border: 1px solid #46eaff;
+    border-radius: 6px;
+    color: white;
+    outline: none;
+    font-size: 10px;
+}
+
+.modal-box select:focus {
+    box-shadow: 0 0 8px rgba(70, 234, 255, 0.65);
+}
