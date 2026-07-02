@@ -362,24 +362,26 @@ function loadData() {
     const saved = getStorage("questData") || {};
     const today = getTodayString();
 
+    const persistentData = {
+        meals: Array.isArray(saved.meals) ? saved.meals : [],
+        weightHistory: saved.weightHistory || [],
+        fatHistory: saved.fatHistory || []
+    };
+
     if (saved.date !== today) {
         return {
             date: today,
             completed: {},
             tempTasks: [],
-            meals: [],
-            weightHistory: saved.weightHistory || [],
-            fatHistory: saved.fatHistory || []
+            ...persistentData
         };
     }
 
     return {
-        date: saved.date,
+        date: saved.date || today,
         completed: saved.completed || {},
         tempTasks: saved.tempTasks || [],
-        meals: saved.meals || [],
-        weightHistory: saved.weightHistory || [],
-        fatHistory: saved.fatHistory || []
+        ...persistentData
     };
 }
 
@@ -833,45 +835,69 @@ function checkCompleted() {
     overlay.style.display = allTasksComplete() ? "flex" : "none";
 }
 
-function getTodayMeals() {
-    return data.meals.filter(meal => meal.date === getTodayString());
-}
-
-function getWeekRange() {
-    const now = new Date();
-    const start = new Date(now);
-    const day = start.getDay() || 7;
-    start.setDate(start.getDate() - day + 1);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    end.setHours(23, 59, 59, 999);
-    return { start, end };
+function getAllSavedMeals() {
+    return Array.isArray(data.meals) ? data.meals : [];
 }
 
 function parseAuDate(dateString) {
-    const [day, month, year] = String(dateString).split("/").map(Number);
-    return new Date(year, month - 1, day);
+    const [day, month, year] = String(dateString || "").split("/").map(Number);
+    if (!day || !month || !year) return null;
+    const parsed = new Date(year, month - 1, day);
+    if (Number.isNaN(parsed.getTime())) return null;
+    parsed.setHours(0, 0, 0, 0);
+    return parsed;
+}
+
+function getTodayMeals() {
+    const today = getTodayString();
+    return getAllSavedMeals().filter(meal => meal.date === today);
+}
+
+function getWeekRange(referenceDate = new Date()) {
+    const start = new Date(referenceDate);
+    const day = start.getDay() || 7; // Monday = 1, Sunday = 7
+    start.setDate(start.getDate() - day + 1);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+
+    return { start, end };
+}
+
+function normaliseMealNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : 0;
+}
+
+function getMealCalories(meal) {
+    return normaliseMealNumber(meal?.calories);
 }
 
 function getThisWeekMeals() {
     const { start, end } = getWeekRange();
-    return data.meals.filter(meal => {
+    return getAllSavedMeals().filter(meal => {
         const date = parseAuDate(meal.date);
-        return date >= start && date <= end;
+        return date && date >= start && date <= end;
     });
 }
 
 function getMealsForCalorieView() {
-    return calorieViewMode === "weekly" ? getThisWeekMeals() : getTodayMeals();
+    const meals = calorieViewMode === "weekly" ? getThisWeekMeals() : getTodayMeals();
+    return [...meals].sort((a, b) => {
+        const dateA = parseAuDate(a.date)?.getTime() || 0;
+        const dateB = parseAuDate(b.date)?.getTime() || 0;
+        return dateA - dateB || String(a.time || "").localeCompare(String(b.time || ""));
+    });
 }
 
 function getCaloriesEatenToday() {
-    return getTodayMeals().reduce((total, meal) => total + meal.calories, 0);
+    return getTodayMeals().reduce((total, meal) => total + getMealCalories(meal), 0);
 }
 
 function getCaloriesEatenForView() {
-    return getMealsForCalorieView().reduce((total, meal) => total + meal.calories, 0);
+    return getMealsForCalorieView().reduce((total, meal) => total + getMealCalories(meal), 0);
 }
 
 function getCalorieTargetForView() {
@@ -966,7 +992,8 @@ function renderCaloriePage() {
         btn.classList.toggle("active", btn.dataset.mode === calorieViewMode);
     });
 
-    getMealsForCalorieView().forEach((meal) => {
+    const visibleMeals = getMealsForCalorieView();
+    visibleMeals.forEach((meal) => {
         const actualIndex = findMealActualIndex(meal);
         const div = document.createElement("div");
         div.className = "meal-item";
@@ -982,12 +1009,21 @@ function renderCaloriePage() {
         mealList.appendChild(div);
     });
 
+    if (!visibleMeals.length) {
+        const div = document.createElement("div");
+        div.className = "meal-item";
+        div.innerText = calorieViewMode === "weekly"
+            ? "No meals logged for this Monday–Sunday week yet."
+            : "No meals logged for today yet.";
+        mealList.appendChild(div);
+    }
+
     let caloriesTarget, caloriesEaten;
     
     if (calorieViewMode === "weekly") {
         caloriesTarget = selectedCal * 7;
         const weekMeals = getThisWeekMeals();
-        caloriesEaten = weekMeals.reduce((total, meal) => total + meal.calories, 0);
+        caloriesEaten = weekMeals.reduce((total, meal) => total + getMealCalories(meal), 0);
     } else {
         caloriesTarget = selectedCal;
         caloriesEaten = getCaloriesEatenToday();
@@ -999,10 +1035,11 @@ function renderCaloriePage() {
     const eatenText = document.getElementById("caloriesEatenText");
     if (eatenText) eatenText.innerHTML = `${caloriesEaten} / ${caloriesTarget} kcal`;
 
-    // Calculate ALL macros fresh
-    const proteinTarget = getProteinTargetToday();
-    const carbsTarget = getCarbsTargetToday();
-    const fatTarget = getFatTargetToday();
+    // Calculate macros for the selected view. Daily = today only; weekly = Monday to Sunday.
+    const macroTargetMultiplier = calorieViewMode === "weekly" ? 7 : 1;
+    const proteinTarget = getProteinTargetToday() * macroTargetMultiplier;
+    const carbsTarget = getCarbsTargetToday() * macroTargetMultiplier;
+    const fatTarget = getFatTargetToday() * macroTargetMultiplier;
     
     const macros = getMacroTotalsForView();
     const proteinEl = document.getElementById("proteinText");
