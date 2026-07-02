@@ -13,26 +13,25 @@ workflows:
           npm install -g @capacitor/cli
           npm install @capacitor/core @capacitor/android @capacitor/local-notifications
       
-      - name: Build signed Android APK
+      - name: Build Android APK
         script: |
-          : "${ANDROID_KEYSTORE_BASE64:?Add ANDROID_KEYSTORE_BASE64 to Codemagic environment variables}"
-          : "${ANDROID_KEYSTORE_PASSWORD:?Add ANDROID_KEYSTORE_PASSWORD to Codemagic environment variables}"
-          : "${ANDROID_KEY_ALIAS:?Add ANDROID_KEY_ALIAS to Codemagic environment variables}"
-          : "${ANDROID_KEY_PASSWORD:?Add ANDROID_KEY_PASSWORD to Codemagic environment variables}"
           rm -rf android
           npx cap init "Solo System" "com.solosystem.app"
           npx cap add android
           npx cap sync
           npx cap copy
-          python3 - <<'PY'
+          cd android
+          chmod +x gradlew
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEYSTORE_PASSWORD" ] && [ -n "$ANDROID_KEY_ALIAS" ] && [ -n "$ANDROID_KEY_PASSWORD" ]; then
+            python3 - <<'PY'
           import base64
           import os
           from pathlib import Path
 
-          keystore_path = Path("android/app/solo-system-release.keystore")
+          keystore_path = Path("app/solo-system-release.keystore")
           keystore_path.write_bytes(base64.b64decode(os.environ["ANDROID_KEYSTORE_BASE64"]))
 
-          Path("android/key.properties").write_text(
+          Path("key.properties").write_text(
               "\n".join([
                   "storeFile=solo-system-release.keystore",
                   f"storePassword={os.environ['ANDROID_KEYSTORE_PASSWORD']}",
@@ -42,7 +41,7 @@ workflows:
               ])
           )
 
-          gradle_path = Path("android/app/build.gradle")
+          gradle_path = Path("app/build.gradle")
           text = gradle_path.read_text()
 
           if "def keystoreProperties" not in text:
@@ -81,11 +80,14 @@ workflows:
 
           gradle_path.write_text(text)
           PY
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleRelease
+            ./gradlew assembleRelease
+          else
+            echo "No Android release keystore variables found. Building debug APK instead."
+            ./gradlew assembleDebug
+          fi
     artifacts:
       - android/app/build/outputs/apk/release/*.apk
+      - android/app/build/outputs/apk/debug/*.apk
     publishing:
       email:
         recipients:
