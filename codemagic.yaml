@@ -2,13 +2,15 @@ workflows:
   android-build:
     name: Android APK - Signed Update
     instance_type: mac_mini_m1
+
     environment:
       node: 18
       android_signing:
         - solo_system_release_keystore
       vars:
-        APP_VERSION_CODE: 7
-        APP_VERSION_NAME: "1.6.0"
+        APP_VERSION_CODE: 8
+        APP_VERSION_NAME: "1.7.0"
+
     scripts:
       - name: Install dependencies
         script: |
@@ -19,13 +21,16 @@ workflows:
       - name: Generate Capacitor Android project
         script: |
           set -e
+
           rm -rf android
+
           npx cap init "Solo System" "com.solosystem.app" --web-dir www || true
           npx cap add android
           npx cap sync android
           npx cap copy android
 
           mkdir -p android/app/src/main/res/drawable
+
           cat > android/app/src/main/res/drawable/ic_stat_icon_config_sample.xml <<'ICON'
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
               android:width="24dp"
@@ -44,7 +49,8 @@ workflows:
           cd android
 
           if [ -z "$CM_KEYSTORE_PATH" ] || [ ! -f "$CM_KEYSTORE_PATH" ]; then
-            echo "ERROR: Codemagic keystore was not found. Upload the Android keystore with reference name: solo_system_release_keystore"
+            echo "ERROR: Codemagic keystore was not found."
+            echo "Upload the Android keystore in Codemagic with reference name: solo_system_release_keystore"
             exit 1
           fi
 
@@ -54,20 +60,27 @@ workflows:
           from pathlib import Path
 
           gradle_path = Path("app/build.gradle")
+
+          if not gradle_path.exists():
+              raise SystemExit("android/app/build.gradle was not found")
+
           text = gradle_path.read_text()
 
-          version_code = os.environ.get("APP_VERSION_CODE", "7")
-          version_name = os.environ.get("APP_VERSION_NAME", "1.6.0")
+          version_code = os.environ.get("APP_VERSION_CODE", "8")
+          version_name = os.environ.get("APP_VERSION_NAME", "1.7.0")
 
           android_match = re.search(r"android\s*\{", text)
           if not android_match:
               raise SystemExit("Could not find android { block in android/app/build.gradle")
 
           insert_after_android = ""
+
           if not re.search(r"\bcompileSdk(?:Version)?\b", text):
               insert_after_android += "\n    compileSdk 35"
+
           if "namespace" not in text:
-              insert_after_android += "\n    namespace \"com.solosystem.app\""
+              insert_after_android += '\n    namespace "com.solosystem.app"'
+
           if insert_after_android:
               pos = android_match.end()
               text = text[:pos] + insert_after_android + text[pos:]
@@ -75,12 +88,24 @@ workflows:
           if re.search(r"versionCode\s+\d+", text):
               text = re.sub(r"versionCode\s+\d+", f"versionCode {version_code}", text)
           else:
-              text = text.replace("defaultConfig {", f"defaultConfig {{\n        versionCode {version_code}", 1)
+              text = text.replace(
+                  "defaultConfig {",
+                  f"defaultConfig {{\n        versionCode {version_code}",
+                  1
+              )
 
           if re.search(r'versionName\s+"[^"]+"', text):
-              text = re.sub(r'versionName\s+"[^"]+"', f'versionName \"{version_name}\"", text)
+              text = re.sub(
+                  r'versionName\s+"[^"]+"',
+                  f'versionName "{version_name}"',
+                  text
+              )
           else:
-              text = text.replace("defaultConfig {", f"defaultConfig {{\n        versionName \"{version_name}\"", 1)
+              text = text.replace(
+                  "defaultConfig {",
+                  f'defaultConfig {{\n        versionName "{version_name}"',
+                  1
+              )
 
           signing_block = """
               signingConfigs {
@@ -125,12 +150,13 @@ workflows:
                   out.append("            signingConfig signingConfigs.release")
                   already_has_release_signing = True
 
-              if in_build_types and depth < build_depth:
+              if in_build_types and build_depth is not None and depth < build_depth:
                   in_build_types = False
                   build_depth = None
 
           text = "\n".join(out) + "\n"
           gradle_path.write_text(text)
+
           print("Patched android/app/build.gradle successfully.")
           PY
 
@@ -143,6 +169,7 @@ workflows:
 
     artifacts:
       - android/app/build/outputs/apk/release/*.apk
+
     publishing:
       email:
         recipients:
