@@ -1,93 +1,123 @@
 workflows:
   android-build:
-    name: Android APK
+    name: Android APK - Signed Update
     instance_type: mac_mini_m1
     environment:
       node: 18
+      # IMPORTANT:
+      # In Codemagic, upload the SAME Android keystore that signed the app already installed
+      # on your phone. Give it this reference name, or change the line below to match yours.
+      android_signing:
+        - solo_system_release_keystore
       vars:
-        APP_VERSION_CODE: 3
-        APP_VERSION_NAME: "1.2.0"
+        APP_VERSION_CODE: 4
+        APP_VERSION_NAME: "1.3.0"
     scripts:
-      - name: Install Capacitor with Local Notifications
+      - name: Install dependencies
         script: |
+          set -e
+          npm install
           npm install -g @capacitor/cli
-          npm install @capacitor/core @capacitor/android @capacitor/local-notifications
-      
-      - name: Build Android APK
+
+      - name: Generate Capacitor Android project
         script: |
+          set -e
           rm -rf android
-          npx cap init "Solo System" "com.solosystem.app"
+          npx cap init "Solo System" "com.solosystem.app" --web-dir www
           npx cap add android
-          npx cap sync
-          npx cap copy
+          npx cap sync android
+          npx cap copy android
+
+          mkdir -p android/app/src/main/res/drawable
+          cat > android/app/src/main/res/drawable/ic_stat_icon_config_sample.xml <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+              <path
+                  android:fillColor="#46EAFF"
+                  android:pathData="M12,2L14.39,8.26L21,9L16,13.5L17.5,20L12,16.6L6.5,20L8,13.5L3,9L9.61,8.26L12,2Z" />
+          </vector>
+          EOF
+
+      - name: Configure release signing
+        script: |
+          set -e
           cd android
-          chmod +x gradlew
-          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEYSTORE_PASSWORD" ] && [ -n "$ANDROID_KEY_ALIAS" ] && [ -n "$ANDROID_KEY_PASSWORD" ]; then
+
+          # Preferred: Codemagic Code signing identity.
+          # Codemagic exports these when environment.android_signing is configured correctly.
+          if [ -n "$CM_KEYSTORE_PATH" ] && [ -n "$CM_KEYSTORE_PASSWORD" ] && [ -n "$CM_KEY_ALIAS" ] && [ -n "$CM_KEY_PASSWORD" ]; then
+            echo "Using Codemagic Android code signing identity."
+            export SOLO_KEYSTORE_PATH="$CM_KEYSTORE_PATH"
+            export SOLO_KEYSTORE_PASSWORD="$CM_KEYSTORE_PASSWORD"
+            export SOLO_KEY_ALIAS="$CM_KEY_ALIAS"
+            export SOLO_KEY_PASSWORD="$CM_KEY_PASSWORD"
+
+          # Backup method: app-level/team environment variables.
+          elif [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEYSTORE_PASSWORD" ] && [ -n "$ANDROID_KEY_ALIAS" ] && [ -n "$ANDROID_KEY_PASSWORD" ]; then
+            echo "Using ANDROID_KEYSTORE_BASE64 environment variables."
             python3 - <<'PY'
-          import base64
-          import os
+          import base64, os
           from pathlib import Path
+          out = Path("app/solo-system-release.keystore")
+          out.write_bytes(base64.b64decode(os.environ["ANDROID_KEYSTORE_BASE64"]))
+          PY
+            export SOLO_KEYSTORE_PATH="$PWD/app/solo-system-release.keystore"
+            export SOLO_KEYSTORE_PASSWORD="$ANDROID_KEYSTORE_PASSWORD"
+            export SOLO_KEY_ALIAS="$ANDROID_KEY_ALIAS"
+            export SOLO_KEY_PASSWORD="$ANDROID_KEY_PASSWORD"
+          else
+            echo "ERROR: No release signing key found."
+            echo "Upload the SAME old keystore in Codemagic and reference it as solo_system_release_keystore,"
+            echo "or add ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD."
+            echo "Building a debug APK would cause package/signature conflicts, so this workflow stops here."
+            exit 1
+          fi
 
-          keystore_path = Path("app/solo-system-release.keystore")
-          keystore_path.write_bytes(base64.b64decode(os.environ["ANDROID_KEYSTORE_BASE64"]))
-
-          Path("key.properties").write_text(
-              "\n".join([
-                  "storeFile=solo-system-release.keystore",
-                  f"storePassword={os.environ['ANDROID_KEYSTORE_PASSWORD']}",
-                  f"keyAlias={os.environ['ANDROID_KEY_ALIAS']}",
-                  f"keyPassword={os.environ['ANDROID_KEY_PASSWORD']}",
-                  ""
-              ])
-          )
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
 
           gradle_path = Path("app/build.gradle")
           text = gradle_path.read_text()
 
-          if "def keystoreProperties" not in text:
-              text = text.replace(
-                  "apply plugin: 'com.android.application'\n",
-                  "apply plugin: 'com.android.application'\n\n"
-                  "def keystorePropertiesFile = rootProject.file('key.properties')\n"
-                  "def keystoreProperties = new Properties()\n"
-                  "keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n"
-              )
+          version_code = os.environ.get("APP_VERSION_CODE", "4")
+          version_name = os.environ.get("APP_VERSION_NAME", "1.3.0")
 
-          text = text.replace("versionCode 1", f"versionCode {os.environ.get('APP_VERSION_CODE', '2')}")
-          text = text.replace('versionName "1.0"', f'versionName "{os.environ.get("APP_VERSION_NAME", "1.1.0")}"')
+          text = re.sub(r"versionCode\s+\d+", f"versionCode {version_code}", text)
+          text = re.sub(r'versionName\s+"[^"]+"', f'versionName "{version_name}"', text)
 
-          if "signingConfigs {" not in text:
-              text = text.replace(
-                  "android {\n",
-                  "android {\n"
-                  "    signingConfigs {\n"
-                  "        release {\n"
-                  "            storeFile file(keystoreProperties['storeFile'])\n"
-                  "            storePassword keystoreProperties['storePassword']\n"
-                  "            keyAlias keystoreProperties['keyAlias']\n"
-                  "            keyPassword keystoreProperties['keyPassword']\n"
-                  "        }\n"
-                  "    }\n"
-              )
+          signing_block = """    signingConfigs {
+                  release {
+                      storeFile file(System.getenv("SOLO_KEYSTORE_PATH"))
+                      storePassword System.getenv("SOLO_KEYSTORE_PASSWORD")
+                      keyAlias System.getenv("SOLO_KEY_ALIAS")
+                      keyPassword System.getenv("SOLO_KEY_PASSWORD")
+                  }
+              }
+          """
+
+          if "signingConfigs" not in text:
+              text = text.replace("android {\n", "android {\n" + signing_block, 1)
 
           if "signingConfig signingConfigs.release" not in text:
-              text = text.replace(
-                  "release {\n",
-                  "release {\n"
-                  "            signingConfig signingConfigs.release\n",
-                  1
-              )
+              text = text.replace("release {\n", "release {\n            signingConfig signingConfigs.release\n", 1)
 
           gradle_path.write_text(text)
           PY
-            ./gradlew assembleRelease
-          else
-            echo "No Android release keystore variables found. Building debug APK instead."
-            ./gradlew assembleDebug
-          fi
+
+      - name: Build signed release APK
+        script: |
+          set -e
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease
+
     artifacts:
       - android/app/build/outputs/apk/release/*.apk
-      - android/app/build/outputs/apk/debug/*.apk
     publishing:
       email:
         recipients:
@@ -103,14 +133,14 @@ workflows:
         script: |
           npm install -g @capacitor/cli
           npm install @capacitor/core @capacitor/ios @capacitor/local-notifications
-      
+
       - name: Build iOS IPA
         script: |
           rm -rf ios
-          npx cap init "Solo System" "com.solosystem.app"
+          npx cap init "Solo System" "com.solosystem.app" --web-dir www
           npx cap add ios
-          npx cap sync
-          npx cap copy
+          npx cap sync ios
+          npx cap copy ios
           cd ios/App
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Release build
     artifacts:
