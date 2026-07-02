@@ -86,6 +86,39 @@ function getTodayString() {
     return new Date().toLocaleDateString("en-AU");
 }
 
+function toDateInputValue(dateString) {
+    const [day, month, year] = (dateString || "").split("/");
+    if (!day || !month || !year) return new Date().toISOString().slice(0, 10);
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+function fromDateInputValue(dateValue) {
+    const [year, month, day] = (dateValue || "").split("-");
+    if (!day || !month || !year) return getTodayString();
+    return `${day}/${month}/${year}`;
+}
+
+function getModalDate() {
+    const dateInput = document.getElementById("modalInputDate");
+    return fromDateInputValue(dateInput?.value || new Date().toISOString().slice(0, 10));
+}
+
+function sortHistoryByDate(entries) {
+    entries.sort((a, b) => new Date(a.date.split('/').reverse().join('-')) - new Date(b.date.split('/').reverse().join('-')));
+}
+
+function updateCurrentStatsFromHistory() {
+    if (data.weightHistory?.length) {
+        sortHistoryByDate(data.weightHistory);
+        setupData.currentWeight = data.weightHistory[data.weightHistory.length - 1].weight;
+    }
+    if (data.fatHistory?.length) {
+        sortHistoryByDate(data.fatHistory);
+        setupData.bodyFat = data.fatHistory[data.fatHistory.length - 1].bodyFat;
+    }
+    setStorage("setupData", setupData);
+}
+
 function getDayName() {
     return new Date().toLocaleDateString("en-AU", { weekday: "long" });
 }
@@ -1265,6 +1298,7 @@ function goToCalories() {
 function resetModalInputs() {
     const input = document.getElementById("modalInput");
     const calorieInput = document.getElementById("modalInputCalories");
+    const dateInput = document.getElementById("modalInputDate");
     const timeInput = document.getElementById("modalInputTime");
     const repsInput = document.getElementById("modalInputReps");
     const setsInput = document.getElementById("modalInputSets");
@@ -1286,6 +1320,12 @@ function resetModalInputs() {
     calorieInput.style.display = "none";
     calorieInput.removeAttribute("step");
     calorieInput.removeAttribute("min");
+
+    if (dateInput) {
+        dateInput.value = "";
+        dateInput.type = "date";
+        dateInput.style.display = "none";
+    }
     
     if (timeInput) {
         timeInput.value = "";
@@ -1366,6 +1406,11 @@ function openWeightModal() {
     input.step = "0.1";
     input.min = "1";
     input.placeholder = "Enter weight in kg";
+    const dateInput = document.getElementById("modalInputDate");
+    if (dateInput) {
+        dateInput.style.display = "block";
+        dateInput.value = new Date().toISOString().slice(0, 10);
+    }
     openModal("modalInput");
 }
 
@@ -1378,6 +1423,11 @@ function openBodyFatModal() {
     input.step = "0.1";
     input.min = "1";
     input.placeholder = "Enter body fat percentage";
+    const dateInput = document.getElementById("modalInputDate");
+    if (dateInput) {
+        dateInput.style.display = "block";
+        dateInput.value = new Date().toISOString().slice(0, 10);
+    }
     openModal("modalInput");
 }
 
@@ -1513,9 +1563,8 @@ function submitModal() {
             showModalError("Enter a valid weight.", "modalInput");
             return;
         }
-        data.weightHistory.push({ date: getTodayString(), weight });
-        setupData.currentWeight = weight;
-        setStorage("setupData", setupData);
+        data.weightHistory.push({ date: getModalDate(), weight });
+        updateCurrentStatsFromHistory();
         saveData();
         closeModal();
         refreshStatsAndHistoryPages();
@@ -1529,10 +1578,8 @@ function submitModal() {
             return;
         }
         data.weightHistory[window.editingWeightIndex].weight = weight;
-        if (window.editingWeightIndex === data.weightHistory.length - 1) {
-            setupData.currentWeight = weight;
-            setStorage("setupData", setupData);
-        }
+        data.weightHistory[window.editingWeightIndex].date = getModalDate();
+        updateCurrentStatsFromHistory();
         saveData();
         closeModal();
         refreshStatsAndHistoryPages();
@@ -1727,9 +1774,8 @@ function submitModal() {
             return;
         }
         if (!data.fatHistory) data.fatHistory = [];
-        data.fatHistory.push({ date: getTodayString(), bodyFat });
-        setupData.bodyFat = bodyFat;
-        setStorage("setupData", setupData);
+        data.fatHistory.push({ date: getModalDate(), bodyFat });
+        updateCurrentStatsFromHistory();
         saveData();
         refreshStatsAndHistoryPages();
         renderCaloriePage();
@@ -1770,10 +1816,8 @@ function submitModal() {
             return;
         }
         data.fatHistory[window.editingBodyFatIndex].bodyFat = bodyFat;
-        if (window.editingBodyFatIndex === data.fatHistory.length - 1) {
-            setupData.bodyFat = bodyFat;
-            setStorage("setupData", setupData);
-        }
+        data.fatHistory[window.editingBodyFatIndex].date = getModalDate();
+        updateCurrentStatsFromHistory();
         saveData();
         closeModal();
         refreshStatsAndHistoryPages();
@@ -1843,12 +1887,16 @@ function renderStatsPage() {
 
 function getWeightHistoryEntries() {
     if (!data.weightHistory || data.weightHistory.length === 0) return [];
-    return data.weightHistory.map((entry, originalIndex) => ({ ...entry, originalIndex }));
+    return data.weightHistory
+        .map((entry, originalIndex) => ({ ...entry, originalIndex }))
+        .sort((a, b) => new Date(a.date.split('/').reverse().join('-')) - new Date(b.date.split('/').reverse().join('-')));
 }
 
 function getFatHistoryEntries() {
     if (!data.fatHistory || data.fatHistory.length === 0) return [];
-    return data.fatHistory.map((entry, originalIndex) => ({ ...entry, originalIndex }));
+    return data.fatHistory
+        .map((entry, originalIndex) => ({ ...entry, originalIndex }))
+        .sort((a, b) => new Date(a.date.split('/').reverse().join('-')) - new Date(b.date.split('/').reverse().join('-')));
 }
 
 function renderHistoryList({ entries, list, emptyText, limit = null, valueLabel, editName, removeName }) {
@@ -1991,14 +2039,17 @@ function editWeight(index) {
     input.min = "1";
     input.placeholder = "Enter weight in kg";
     input.value = data.weightHistory[index].weight;
+    const dateInput = document.getElementById("modalInputDate");
+    if (dateInput) {
+        dateInput.style.display = "block";
+        dateInput.value = toDateInputValue(data.weightHistory[index].date);
+    }
     openModal("modalInput");
 }
 
 function removeWeight(index) {
     data.weightHistory.splice(index, 1);
-    const latestWeight = data.weightHistory.length ? data.weightHistory[data.weightHistory.length - 1].weight : setupData.currentWeight;
-    setupData.currentWeight = latestWeight;
-    setStorage("setupData", setupData);
+    updateCurrentStatsFromHistory();
     saveData();
     refreshStatsAndHistoryPages();
 }
@@ -2014,14 +2065,17 @@ function editBodyFat(index) {
     input.min = "1";
     input.placeholder = "Enter body fat percentage";
     input.value = data.fatHistory[index].bodyFat;
+    const dateInput = document.getElementById("modalInputDate");
+    if (dateInput) {
+        dateInput.style.display = "block";
+        dateInput.value = toDateInputValue(data.fatHistory[index].date);
+    }
     openModal("modalInput");
 }
 
 function removeBodyFat(index) {
     data.fatHistory.splice(index, 1);
-    const latestBodyFat = data.fatHistory.length ? data.fatHistory[data.fatHistory.length - 1].bodyFat : setupData.bodyFat;
-    setupData.bodyFat = latestBodyFat;
-    setStorage("setupData", setupData);
+    updateCurrentStatsFromHistory();
     saveData();
     refreshStatsAndHistoryPages();
     renderCaloriePage();
