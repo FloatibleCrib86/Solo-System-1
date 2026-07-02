@@ -7,8 +7,8 @@ workflows:
       android_signing:
         - solo_system_release_keystore
       vars:
-        APP_VERSION_CODE: 6
-        APP_VERSION_NAME: "1.5.0"
+        APP_VERSION_CODE: 7
+        APP_VERSION_NAME: "1.6.0"
     scripts:
       - name: Install dependencies
         script: |
@@ -38,14 +38,11 @@ workflows:
           </vector>
           ICON
 
-      - name: Configure release signing
+      - name: Configure Android Gradle and release signing
         script: |
           set -e
           cd android
 
-          # Codemagic provides these after you upload the Android keystore under
-          # Team settings > codemagic.yaml settings > Code signing identities.
-          # The Android keystore reference name must be: solo_system_release_keystore
           if [ -z "$CM_KEYSTORE_PATH" ] || [ ! -f "$CM_KEYSTORE_PATH" ]; then
             echo "ERROR: Codemagic keystore was not found. Upload the Android keystore with reference name: solo_system_release_keystore"
             exit 1
@@ -59,13 +56,34 @@ workflows:
           gradle_path = Path("app/build.gradle")
           text = gradle_path.read_text()
 
-          version_code = os.environ.get("APP_VERSION_CODE", "6")
-          version_name = os.environ.get("APP_VERSION_NAME", "1.5.0")
+          version_code = os.environ.get("APP_VERSION_CODE", "7")
+          version_name = os.environ.get("APP_VERSION_NAME", "1.6.0")
 
-          text = re.sub(r"versionCode\s+\d+", f"versionCode {version_code}", text)
-          text = re.sub(r'versionName\s+"[^"]+"', f'versionName "{version_name}"', text)
+          android_match = re.search(r"android\s*\{", text)
+          if not android_match:
+              raise SystemExit("Could not find android { block in android/app/build.gradle")
 
-          signing_block = """    signingConfigs {
+          insert_after_android = ""
+          if not re.search(r"\bcompileSdk(?:Version)?\b", text):
+              insert_after_android += "\n    compileSdk 35"
+          if "namespace" not in text:
+              insert_after_android += "\n    namespace \"com.solosystem.app\""
+          if insert_after_android:
+              pos = android_match.end()
+              text = text[:pos] + insert_after_android + text[pos:]
+
+          if re.search(r"versionCode\s+\d+", text):
+              text = re.sub(r"versionCode\s+\d+", f"versionCode {version_code}", text)
+          else:
+              text = text.replace("defaultConfig {", f"defaultConfig {{\n        versionCode {version_code}", 1)
+
+          if re.search(r'versionName\s+"[^"]+"', text):
+              text = re.sub(r'versionName\s+"[^"]+"', f'versionName \"{version_name}\"", text)
+          else:
+              text = text.replace("defaultConfig {", f"defaultConfig {{\n        versionName \"{version_name}\"", 1)
+
+          signing_block = """
+              signingConfigs {
                   release {
                       storeFile file(System.getenv("CM_KEYSTORE_PATH"))
                       storePassword System.getenv("CM_KEYSTORE_PASSWORD")
@@ -76,12 +94,44 @@ workflows:
           """
 
           if "signingConfigs" not in text:
-              text = text.replace("android {\n", "android {\n" + signing_block, 1)
+              if "    buildTypes" in text:
+                  text = text.replace("    buildTypes", signing_block + "\n    buildTypes", 1)
+              else:
+                  text = text.replace("android {", "android {" + signing_block, 1)
 
-          if "signingConfig signingConfigs.release" not in text:
-              text = text.replace("release {\n", "release {\n            signingConfig signingConfigs.release\n", 1)
+          lines = text.splitlines()
+          out = []
+          in_build_types = False
+          build_depth = None
+          depth = 0
+          already_has_release_signing = "signingConfig signingConfigs.release" in text
 
+          for line in lines:
+              stripped = line.strip()
+              old_depth = depth
+
+              starts_build_types = bool(re.match(r"buildTypes\s*\{", stripped))
+              starts_release_build = in_build_types and bool(re.match(r"release\s*\{", stripped))
+
+              out.append(line)
+
+              depth += line.count("{") - line.count("}")
+
+              if starts_build_types:
+                  in_build_types = True
+                  build_depth = old_depth + 1
+
+              if starts_release_build and not already_has_release_signing:
+                  out.append("            signingConfig signingConfigs.release")
+                  already_has_release_signing = True
+
+              if in_build_types and depth < build_depth:
+                  in_build_types = False
+                  build_depth = None
+
+          text = "\n".join(out) + "\n"
           gradle_path.write_text(text)
+          print("Patched android/app/build.gradle successfully.")
           PY
 
       - name: Build signed release APK
@@ -93,33 +143,6 @@ workflows:
 
     artifacts:
       - android/app/build/outputs/apk/release/*.apk
-    publishing:
-      email:
-        recipients:
-          - chetwinchli@gmail.com
-
-  ios-build:
-    name: iOS IPA
-    instance_type: mac_mini_m1
-    environment:
-      node: 18
-    scripts:
-      - name: Install Capacitor with Local Notifications
-        script: |
-          npm install -g @capacitor/cli
-          npm install @capacitor/core @capacitor/ios @capacitor/local-notifications
-
-      - name: Build iOS IPA
-        script: |
-          rm -rf ios
-          npx cap init "Solo System" "com.solosystem.app" --web-dir www || true
-          npx cap add ios
-          npx cap sync ios
-          npx cap copy ios
-          cd ios/App
-          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release build
-    artifacts:
-      - ios/App/build/Release-iphoneos/*.ipa
     publishing:
       email:
         recipients:
