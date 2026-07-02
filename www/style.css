@@ -48,7 +48,7 @@ body {
 }
 
 /* PAGES */
-#tasksPage, #statsPage, #caloriePage, #rehabPage, #frequentMealPage {
+#tasksPage, #statsPage, #weightHistoryPage, #bodyFatHistoryPage, #caloriePage, #rehabPage, #frequentMealPage {
     flex: 1;
     flex-direction: column;
     min-height: 0;
@@ -56,6 +56,8 @@ body {
 
 #tasksPage { display: flex; }
 #statsPage { display: none; }
+#weightHistoryPage { display: none; }
+#bodyFatHistoryPage { display: none; }
 #caloriePage { display: none; }
 #rehabPage { display: none; }
 #frequentMealPage { display: none; }
@@ -124,6 +126,16 @@ h2 {
 .controls button { flex: 1; }
 .page-btn { width: 100%; margin-top: 6px; flex-shrink: 0; }
 
+.history-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.history-actions .page-btn {
+    flex: 1;
+    min-width: 0;
+}
+
 .page-btn:hover, .controls button:hover, .modal-buttons button:hover,
 .task-actions button:hover, .week-focus-item button:hover, .setup-task button:hover {
     background: rgba(0, 217, 255, 0.34);
@@ -169,6 +181,21 @@ canvas {
 .mini-chart-box canvas {
     width: 100%;
     height: 100px;
+}
+
+.history-chart-box {
+    width: 100%;
+    min-height: 170px;
+}
+
+.history-chart-box h2 {
+    text-align: center;
+    font-size: 10px;
+    margin: 4px 0;
+}
+
+.history-chart-box canvas {
+    height: 145px;
 }
 
 /* COMPLETED OVERLAY */
@@ -412,7 +439,8 @@ canvas {
     background: rgba(0, 217, 255, 0.34);
 }
 
-#weightHistoryList .task-row, #fatHistoryList .task-row {
+#weightHistoryList .task-row, #fatHistoryList .task-row,
+#weightFullHistoryList .task-row, #bodyFatFullHistoryList .task-row {
     font-size: 10px;
     margin: 3px 0;
     padding: 6px;
@@ -421,8 +449,22 @@ canvas {
     background: rgba(0, 217, 255, 0.08);
 }
 
-#weightHistoryList span, #fatHistoryList span {
+#weightHistoryList span, #fatHistoryList span,
+#weightFullHistoryList span, #bodyFatFullHistoryList span {
     color: white;
+}
+
+.full-history-list {
+    max-height: 190px;
+    overflow-y: auto;
+    padding-right: 2px;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+}
+
+.full-history-list::-webkit-scrollbar {
+    display: none;
 }
 
 .bottom-actions {
