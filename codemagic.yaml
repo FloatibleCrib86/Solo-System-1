@@ -4,24 +4,88 @@ workflows:
     instance_type: mac_mini_m1
     environment:
       node: 18
+      vars:
+        APP_VERSION_CODE: 2
+        APP_VERSION_NAME: "1.1.0"
     scripts:
       - name: Install Capacitor with Local Notifications
         script: |
           npm install -g @capacitor/cli
           npm install @capacitor/core @capacitor/android @capacitor/local-notifications
       
-      - name: Build Android APK
+      - name: Build signed Android APK
         script: |
+          : "${ANDROID_KEYSTORE_BASE64:?Add ANDROID_KEYSTORE_BASE64 to Codemagic environment variables}"
+          : "${ANDROID_KEYSTORE_PASSWORD:?Add ANDROID_KEYSTORE_PASSWORD to Codemagic environment variables}"
+          : "${ANDROID_KEY_ALIAS:?Add ANDROID_KEY_ALIAS to Codemagic environment variables}"
+          : "${ANDROID_KEY_PASSWORD:?Add ANDROID_KEY_PASSWORD to Codemagic environment variables}"
           rm -rf android
           npx cap init "Solo System" "com.solosystem.app"
           npx cap add android
           npx cap sync
           npx cap copy
+          python3 - <<'PY'
+          import base64
+          import os
+          from pathlib import Path
+
+          keystore_path = Path("android/app/solo-system-release.keystore")
+          keystore_path.write_bytes(base64.b64decode(os.environ["ANDROID_KEYSTORE_BASE64"]))
+
+          Path("android/key.properties").write_text(
+              "\n".join([
+                  "storeFile=solo-system-release.keystore",
+                  f"storePassword={os.environ['ANDROID_KEYSTORE_PASSWORD']}",
+                  f"keyAlias={os.environ['ANDROID_KEY_ALIAS']}",
+                  f"keyPassword={os.environ['ANDROID_KEY_PASSWORD']}",
+                  ""
+              ])
+          )
+
+          gradle_path = Path("android/app/build.gradle")
+          text = gradle_path.read_text()
+
+          if "def keystoreProperties" not in text:
+              text = text.replace(
+                  "apply plugin: 'com.android.application'\n",
+                  "apply plugin: 'com.android.application'\n\n"
+                  "def keystorePropertiesFile = rootProject.file('key.properties')\n"
+                  "def keystoreProperties = new Properties()\n"
+                  "keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n"
+              )
+
+          text = text.replace("versionCode 1", f"versionCode {os.environ.get('APP_VERSION_CODE', '2')}")
+          text = text.replace('versionName "1.0"', f'versionName "{os.environ.get("APP_VERSION_NAME", "1.1.0")}"')
+
+          if "signingConfigs {" not in text:
+              text = text.replace(
+                  "android {\n",
+                  "android {\n"
+                  "    signingConfigs {\n"
+                  "        release {\n"
+                  "            storeFile file(keystoreProperties['storeFile'])\n"
+                  "            storePassword keystoreProperties['storePassword']\n"
+                  "            keyAlias keystoreProperties['keyAlias']\n"
+                  "            keyPassword keystoreProperties['keyPassword']\n"
+                  "        }\n"
+                  "    }\n"
+              )
+
+          if "signingConfig signingConfigs.release" not in text:
+              text = text.replace(
+                  "release {\n",
+                  "release {\n"
+                  "            signingConfig signingConfigs.release\n",
+                  1
+              )
+
+          gradle_path.write_text(text)
+          PY
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleRelease
     artifacts:
-      - android/app/build/outputs/apk/debug/*.apk
+      - android/app/build/outputs/apk/release/*.apk
     publishing:
       email:
         recipients:
