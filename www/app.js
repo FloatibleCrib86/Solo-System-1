@@ -46,6 +46,7 @@ const focusDiv = document.getElementById("focus");
 let modalMode = null;
 let setupStep = 0;
 let calorieViewMode = "daily";
+const HISTORY_PREVIEW_LIMIT = 5;
 
 const setupDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -327,8 +328,6 @@ function closeCalorieDoneOverlay() {
 function loadData() {
     const saved = getStorage("questData") || {};
     const today = getTodayString();
-    const initialWeight = Number(setupData.currentWeight) || 70;
-    const initialBodyFat = Number(setupData.bodyFat) || (setupData.sex === "female" ? 22 : 15);
 
     if (saved.date !== today) {
         return {
@@ -336,8 +335,8 @@ function loadData() {
             completed: {},
             tempTasks: [],
             meals: [],
-            weightHistory: saved.weightHistory && saved.weightHistory.length ? saved.weightHistory : [{ date: today, weight: initialWeight }],
-            fatHistory: saved.fatHistory && saved.fatHistory.length ? saved.fatHistory : [{ date: today, bodyFat: initialBodyFat }]
+            weightHistory: saved.weightHistory || [],
+            fatHistory: saved.fatHistory || []
         };
     }
 
@@ -346,12 +345,13 @@ function loadData() {
         completed: saved.completed || {},
         tempTasks: saved.tempTasks || [],
         meals: saved.meals || [],
-        weightHistory: saved.weightHistory && saved.weightHistory.length ? saved.weightHistory : [{ date: today, weight: initialWeight }],
-        fatHistory: saved.fatHistory && saved.fatHistory.length ? saved.fatHistory : [{ date: today, bodyFat: initialBodyFat }]
+        weightHistory: saved.weightHistory || [],
+        fatHistory: saved.fatHistory || []
     };
 }
 
 let data = loadData();
+removeSeededRegistrationHistoryOnce();
 let frequentMeals = getStorage("frequentMeals") || [];
 
 let rehabData = getStorage("rehabData") || {
@@ -368,6 +368,22 @@ function saveRehabData() {
 }
 
 function saveData() {
+    setStorage("questData", data);
+}
+
+function removeSeededRegistrationHistoryOnce() {
+    if (getStorage("historySeedMigrationComplete")) return;
+
+    if (data.weightHistory?.length === 1 && Number(data.weightHistory[0].weight) === Number(setupData.currentWeight)) {
+        data.weightHistory = [];
+    }
+    const defaultBodyFat = setupData.sex === "female" ? 22 : 15;
+    const seededBodyFat = setupData.bodyFat ? Number(setupData.bodyFat) : defaultBodyFat;
+    if (data.fatHistory?.length === 1 && Number(data.fatHistory[0].bodyFat) === seededBodyFat) {
+        data.fatHistory = [];
+    }
+
+    setStorage("historySeedMigrationComplete", true);
     setStorage("questData", data);
 }
 
@@ -609,15 +625,13 @@ function finishSetup() {
 
     weeklyPlan = setupData.weeklyPlan;
 
-    const initialBodyFat = Number(setupData.bodyFat) || (setupData.sex === "female" ? 22 : 15);
-    
     data = {
         date: getTodayString(),
         completed: {},
         tempTasks: [],
         meals: [],
-        weightHistory: [{ date: getTodayString(), weight: Number(setupData.currentWeight) || 70 }],
-        fatHistory: [{ date: getTodayString(), bodyFat: initialBodyFat }]
+        weightHistory: [],
+        fatHistory: []
     };
 
     saveData();
@@ -1500,9 +1514,11 @@ function submitModal() {
             return;
         }
         data.weightHistory.push({ date: getTodayString(), weight });
+        setupData.currentWeight = weight;
+        setStorage("setupData", setupData);
         saveData();
         closeModal();
-        renderStatsPage();
+        refreshStatsAndHistoryPages();
         return;
     }
     
@@ -1513,9 +1529,13 @@ function submitModal() {
             return;
         }
         data.weightHistory[window.editingWeightIndex].weight = weight;
+        if (window.editingWeightIndex === data.weightHistory.length - 1) {
+            setupData.currentWeight = weight;
+            setStorage("setupData", setupData);
+        }
         saveData();
         closeModal();
-        renderStatsPage();
+        refreshStatsAndHistoryPages();
         return;
     }
     
@@ -1711,7 +1731,7 @@ function submitModal() {
         setupData.bodyFat = bodyFat;
         setStorage("setupData", setupData);
         saveData();
-        renderStatsPage();
+        refreshStatsAndHistoryPages();
         renderCaloriePage();
         
         if (!setupData.targetBodyFat || setupData.targetBodyFat === "X") {
@@ -1750,9 +1770,13 @@ function submitModal() {
             return;
         }
         data.fatHistory[window.editingBodyFatIndex].bodyFat = bodyFat;
+        if (window.editingBodyFatIndex === data.fatHistory.length - 1) {
+            setupData.bodyFat = bodyFat;
+            setStorage("setupData", setupData);
+        }
         saveData();
         closeModal();
-        renderStatsPage();
+        refreshStatsAndHistoryPages();
         renderCaloriePage();
         return;
     }
@@ -1771,7 +1795,8 @@ function renderStatsPage() {
     document.getElementById("nameText").innerText = setupData.name || "Unknown";
     document.getElementById("heightText").innerText = setupData.height ? `${setupData.height} cm` : "Unknown";
     document.getElementById("goalWeightText").innerText = setupData.goalWeight ? `${setupData.goalWeight} kg` : "Unknown";
-    document.getElementById("bodyFatText").innerText = setupData.bodyFat ? setupData.bodyFat + "%" : (setupData.sex === "female" ? "22%" : "15%");
+    const latestBodyFat = data.fatHistory?.length > 0 ? data.fatHistory[data.fatHistory.length - 1].bodyFat : setupData.bodyFat;
+    document.getElementById("bodyFatText").innerText = latestBodyFat ? latestBodyFat + "%" : (setupData.sex === "female" ? "22%" : "15%");
     document.getElementById("targetBodyFatText").innerText = setupData.targetBodyFat ? setupData.targetBodyFat + "%" : "X";
 
     const container = document.getElementById("weeklyFocus");
@@ -1786,71 +1811,131 @@ function renderStatsPage() {
 
     const list = document.getElementById("weightHistoryList");
     list.innerHTML = "";
-    
-    let weightEntries = [];
-    if (data.weightHistory && data.weightHistory.length > 0) {
-        weightEntries = [...data.weightHistory];
-    }
-    
-    const today = getTodayString();
-    const hasTodayWeight = weightEntries.some(w => w.date === today);
-    if (setupData.currentWeight && !hasTodayWeight) {
-        weightEntries.push({ date: today, weight: Number(setupData.currentWeight) });
-    }
-    
-    if (weightEntries.length === 0) {
-        list.innerHTML = `<div class="task-row"><span>No weight entries yet. Add your first weight above.</span></div>`;
-    } else {
-        [...weightEntries].reverse().forEach((entry, idx) => {
-            const originalIndex = weightEntries.length - 1 - idx;
-            const div = document.createElement("div");
-            div.className = "task-row";
-            div.innerHTML = `
-                <span>${entry.date}: ${entry.weight} kg</span>
-                <div class="task-actions">
-                    <button onclick="editWeight(${originalIndex})">Edit</button>
-                    <button onclick="removeWeight(${originalIndex})">Remove</button>
-                </div>
-            `;
-            list.appendChild(div);
-        });
-    }
+    const weightEntries = getWeightHistoryEntries();
+    renderHistoryList({
+        entries: weightEntries,
+        list,
+        emptyText: "No weight entries yet. Add your first weight above.",
+        limit: HISTORY_PREVIEW_LIMIT,
+        valueLabel: entry => `${entry.weight} kg`,
+        editName: "editWeight",
+        removeName: "removeWeight"
+    });
 
     const fatList = document.getElementById("fatHistoryList");
     fatList.innerHTML = "";
-    
-    let fatEntries = [];
-    if (data.fatHistory && data.fatHistory.length > 0) {
-        fatEntries = [...data.fatHistory];
-    }
-    
-    const hasTodayFat = fatEntries.some(f => f.date === today);
-    if (setupData.bodyFat && !hasTodayFat) {
-        fatEntries.push({ date: today, bodyFat: Number(setupData.bodyFat) });
-    }
-    
-    if (fatEntries.length === 0) {
-        fatList.innerHTML = `<div class="task-row"><span>No body fat entries yet. Add your first entry above.</span></div>`;
-    } else {
-        [...fatEntries].reverse().forEach((entry, idx) => {
-            const originalIndex = fatEntries.length - 1 - idx;
-            const div = document.createElement("div");
-            div.className = "task-row";
-            div.innerHTML = `
-                <span>${entry.date}: ${entry.bodyFat}%</span>
-                <div class="task-actions">
-                    <button onclick="editBodyFat(${originalIndex})">Edit</button>
-                    <button onclick="removeBodyFat(${originalIndex})">Remove</button>
-                </div>
-            `;
-            fatList.appendChild(div);
-        });
-    }
+    const fatEntries = getFatHistoryEntries();
+    renderHistoryList({
+        entries: fatEntries,
+        list: fatList,
+        emptyText: "No body fat entries yet. Add your first entry above.",
+        limit: HISTORY_PREVIEW_LIMIT,
+        valueLabel: entry => `${entry.bodyFat}%`,
+        editName: "editBodyFat",
+        removeName: "removeBodyFat"
+    });
 
     drawWeightChart();
     drawFatChart();
     updateRehabStatusText();
     autoResizeWindow();
+}
+
+function getWeightHistoryEntries() {
+    if (!data.weightHistory || data.weightHistory.length === 0) return [];
+    return data.weightHistory.map((entry, originalIndex) => ({ ...entry, originalIndex }));
+}
+
+function getFatHistoryEntries() {
+    if (!data.fatHistory || data.fatHistory.length === 0) return [];
+    return data.fatHistory.map((entry, originalIndex) => ({ ...entry, originalIndex }));
+}
+
+function renderHistoryList({ entries, list, emptyText, limit = null, valueLabel, editName, removeName }) {
+    if (entries.length === 0) {
+        list.innerHTML = `<div class="task-row"><span>${emptyText}</span></div>`;
+        return;
+    }
+
+    const visibleEntries = limit ? entries.slice(-limit) : entries;
+    visibleEntries.forEach(entry => {
+        const div = document.createElement("div");
+        div.className = "task-row";
+        const actions = `
+            <div class="task-actions">
+                <button onclick="${editName}(${entry.originalIndex})">Edit</button>
+                <button onclick="${removeName}(${entry.originalIndex})">Remove</button>
+            </div>
+        `;
+        div.innerHTML = `
+            <span>${entry.date}: ${valueLabel(entry)}</span>
+            ${actions}
+        `;
+        list.appendChild(div);
+    });
+}
+
+function renderWeightHistoryPage() {
+    const list = document.getElementById("weightFullHistoryList");
+    if (!list) return;
+    updateHistoryBackLabels();
+    list.innerHTML = "";
+    renderHistoryList({
+        entries: getWeightHistoryEntries(),
+        list,
+        emptyText: "No weight entries yet. Add your first weight below.",
+        valueLabel: entry => `${entry.weight} kg`,
+        editName: "editWeight",
+        removeName: "removeWeight"
+    });
+    drawHistoryChart("weightHistoryChart", getWeightHistoryEntries(), "weight", "kg", "No weight data");
+    autoResizeWindow();
+}
+
+function renderBodyFatHistoryPage() {
+    const list = document.getElementById("bodyFatFullHistoryList");
+    if (!list) return;
+    updateHistoryBackLabels();
+    list.innerHTML = "";
+    renderHistoryList({
+        entries: getFatHistoryEntries(),
+        list,
+        emptyText: "No body fat entries yet. Add your first entry below.",
+        valueLabel: entry => `${entry.bodyFat}%`,
+        editName: "editBodyFat",
+        removeName: "removeBodyFat"
+    });
+    drawHistoryChart("bodyFatHistoryChart", getFatHistoryEntries(), "bodyFat", "%", "No body fat data");
+    autoResizeWindow();
+}
+
+function updateHistoryBackLabels() {
+    document.querySelectorAll("#weightHistoryPage button[onclick='goToStats()'], #bodyFatHistoryPage button[onclick='goToStats()']")
+        .forEach(button => {
+            button.innerText = "← Back to Player Status";
+        });
+}
+
+function refreshStatsAndHistoryPages() {
+    renderStatsPage();
+    if (document.getElementById("weightHistoryPage")?.style.display === "flex") {
+        renderWeightHistoryPage();
+    }
+    if (document.getElementById("bodyFatHistoryPage")?.style.display === "flex") {
+        renderBodyFatHistoryPage();
+    }
+}
+
+function toggleWeightHistoryView() {
+    hideAllPages();
+    document.getElementById("weightHistoryPage").style.display = "flex";
+    renderWeightHistoryPage();
+}
+
+function toggleFatHistoryView() {
+    hideAllPages();
+    document.getElementById("bodyFatHistoryPage").style.display = "flex";
+    renderBodyFatHistoryPage();
 }
 
 function openDayEditor(day) {
@@ -1911,8 +1996,11 @@ function editWeight(index) {
 
 function removeWeight(index) {
     data.weightHistory.splice(index, 1);
+    const latestWeight = data.weightHistory.length ? data.weightHistory[data.weightHistory.length - 1].weight : setupData.currentWeight;
+    setupData.currentWeight = latestWeight;
+    setStorage("setupData", setupData);
     saveData();
-    renderStatsPage();
+    refreshStatsAndHistoryPages();
 }
 
 function editBodyFat(index) {
@@ -1931,8 +2019,11 @@ function editBodyFat(index) {
 
 function removeBodyFat(index) {
     data.fatHistory.splice(index, 1);
+    const latestBodyFat = data.fatHistory.length ? data.fatHistory[data.fatHistory.length - 1].bodyFat : setupData.bodyFat;
+    setupData.bodyFat = latestBodyFat;
+    setStorage("setupData", setupData);
     saveData();
-    renderStatsPage();
+    refreshStatsAndHistoryPages();
     renderCaloriePage();
 }
 
@@ -1946,10 +2037,10 @@ function enableDragScroll(slider) {
     slider.addEventListener('mousemove', (e) => { if (!isDown) return; e.preventDefault(); slider.scrollLeft = scrollLeft - (e.pageX - slider.offsetLeft - startX); });
 }
 
-function drawWeightChart() {
-    const canvas = document.getElementById("weightChart");
+function drawHistoryChart(canvasId, entries, valueKey, suffix, emptyText, hideWhenEmpty = false) {
+    const canvas = document.getElementById(canvasId);
     if (!canvas) return;
-    
+
     const parentBox = canvas.closest(".mini-chart-box") || canvas.parentElement;
     let scrollWrapper = parentBox.querySelector(".canvas-scroll-wrapper");
     if (!scrollWrapper) {
@@ -1962,199 +2053,94 @@ function drawWeightChart() {
         scrollWrapper.appendChild(canvas);
         enableDragScroll(scrollWrapper);
     }
-    
-    let weights = [];
-    
-    if (data.weightHistory && data.weightHistory.length > 0) {
-        weights = [...data.weightHistory];
-    }
-    
-    const today = getTodayString();
-    const hasTodayWeight = weights.some(w => w.date === today);
-    if (setupData.currentWeight && !hasTodayWeight) {
-        weights.push({ date: today, weight: Number(setupData.currentWeight) });
-    }
-    
-    weights.sort((a, b) => new Date(a.date.split('/').reverse().join('-')) - new Date(b.date.split('/').reverse().join('-')));
-    
-    if (weights.length === 0) {
+
+    const points = [...entries].sort((a, b) => new Date(a.date.split('/').reverse().join('-')) - new Date(b.date.split('/').reverse().join('-')));
+
+    if (points.length === 0) {
+        if (hideWhenEmpty) {
+            parentBox.style.display = "none";
+            return;
+        }
+        parentBox.style.display = "";
+        const visibleWidth = scrollWrapper.clientWidth || 200;
+        canvas.width = visibleWidth;
+        canvas.height = canvas.clientHeight || 150;
+        canvas.style.minWidth = canvas.width + "px";
         const ctx = canvas.getContext("2d");
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = "#ffffff";
         ctx.font = "10px Arial";
-        ctx.fillText("No weight data", canvas.width/2 - 40, canvas.height/2);
+        ctx.fillText(emptyText, canvas.width / 2 - 40, canvas.height / 2);
         return;
     }
-    
+
+    parentBox.style.display = "";
     const padding = 25, rightBuffer = 50;
     const visibleWidth = scrollWrapper.clientWidth || 200;
-    
-    let pointSpacing;
-    if (weights.length === 1) {
-        pointSpacing = (visibleWidth - padding * 2) / 2;
-    } else {
-        pointSpacing = (visibleWidth - padding * 2) / 4;
-    }
-    
-    const totalRequiredWidth = padding + (Math.max(0, weights.length - 1) * pointSpacing) + rightBuffer;
+    const pointSpacing = points.length === 1 ? (visibleWidth - padding * 2) / 2 : (visibleWidth - padding * 2) / 4;
+    const totalRequiredWidth = padding + (Math.max(0, points.length - 1) * pointSpacing) + rightBuffer;
     canvas.width = Math.max(visibleWidth, totalRequiredWidth);
     canvas.height = canvas.clientHeight || 150;
     canvas.style.minWidth = canvas.width + "px";
     canvas.style.display = "block";
-    
+
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     const chartHeight = canvas.height - padding * 2;
-    const minWeight = Math.min(...weights.map(w => w.weight)) - 1;
-    const maxWeight = Math.max(...weights.map(w => w.weight)) + 1;
-    
-    function x(i) { 
-        if (weights.length === 1) {
-            return padding + pointSpacing;
-        }
-        return padding + (i * pointSpacing); 
+    const values = points.map(point => point[valueKey]);
+    const minValue = Math.min(...values) - 1;
+    const maxValue = Math.max(...values) + 1;
+
+    function x(i) {
+        return points.length === 1 ? padding + pointSpacing : padding + (i * pointSpacing);
     }
-    function y(w) { return padding + ((maxWeight - w) / (maxWeight - minWeight)) * chartHeight; }
-    
-    if (weights.length > 1) {
+    function y(value) {
+        return padding + ((maxValue - value) / (maxValue - minValue)) * chartHeight;
+    }
+
+    if (points.length > 1) {
         ctx.strokeStyle = "#46eaff";
         ctx.lineWidth = 2;
         ctx.beginPath();
-        weights.forEach((p, i) => {
-            if (i === 0) ctx.moveTo(x(i), y(p.weight));
-            else ctx.lineTo(x(i), y(p.weight));
+        points.forEach((point, i) => {
+            if (i === 0) ctx.moveTo(x(i), y(point[valueKey]));
+            else ctx.lineTo(x(i), y(point[valueKey]));
         });
         ctx.stroke();
     }
-    
-    weights.forEach((p, i) => {
+
+    points.forEach((point, i) => {
+        const value = point[valueKey];
         ctx.beginPath();
-        ctx.arc(x(i), y(p.weight), 5, 0, Math.PI * 2);
+        ctx.arc(x(i), y(value), 5, 0, Math.PI * 2);
         ctx.fillStyle = "#46eaff";
         ctx.fill();
-        
+
         ctx.fillStyle = "#ffffff";
         ctx.font = "bold 10px Arial";
-        ctx.fillText(`${p.weight}kg`, x(i) - 15, y(p.weight) - 8);
-        
-        if (weights.length > 1) {
+        ctx.fillText(`${value}${suffix}`, x(i) - 15, y(value) - 8);
+
+        if (points.length > 1) {
             ctx.fillStyle = "#b8c7d9";
             ctx.font = "8px Arial";
-            const dateParts = p.date.split('/');
+            const dateParts = point.date.split('/');
             const shortDate = `${dateParts[0]}/${dateParts[1]}`;
-            ctx.fillText(shortDate, x(i) - 12, y(p.weight) + 12);
+            ctx.fillText(shortDate, x(i) - 12, y(value) + 12);
         }
     });
-    
+
     if (scrollWrapper.scrollWidth > scrollWrapper.clientWidth) {
         scrollWrapper.scrollLeft = scrollWrapper.scrollWidth;
     }
 }
 
+function drawWeightChart() {
+    drawHistoryChart("weightChart", data.weightHistory || [], "weight", "kg", "No weight data");
+}
+
 function drawFatChart() {
-    const canvas = document.getElementById("fatChart");
-    if (!canvas) return;
-    
-    const parentBox = canvas.closest(".mini-chart-box") || canvas.parentElement;
-    
-    let fats = [];
-    
-    if (data.fatHistory && data.fatHistory.length > 0) {
-        fats = [...data.fatHistory];
-    }
-    
-    const today = getTodayString();
-    const hasTodayFat = fats.some(f => f.date === today);
-    if (setupData.bodyFat && !hasTodayFat) {
-        fats.push({ date: today, bodyFat: Number(setupData.bodyFat) });
-    }
-    
-    fats.sort((a, b) => new Date(a.date.split('/').reverse().join('-')) - new Date(b.date.split('/').reverse().join('-')));
-    
-    if (fats.length === 0 || !getCurrentBodyFat()) { 
-        parentBox.style.display = "none"; 
-        return; 
-    } else { 
-        parentBox.style.display = ""; 
-    }
-    
-    let scrollWrapper = parentBox.querySelector(".canvas-scroll-wrapper");
-    if (!scrollWrapper) {
-        scrollWrapper = document.createElement("div");
-        scrollWrapper.className = "canvas-scroll-wrapper";
-        scrollWrapper.style.width = "100%";
-        scrollWrapper.style.overflowX = "auto";
-        scrollWrapper.style.overflowY = "hidden";
-        parentBox.appendChild(scrollWrapper);
-        scrollWrapper.appendChild(canvas);
-        enableDragScroll(scrollWrapper);
-    }
-    
-    const padding = 25, rightBuffer = 50;
-    const visibleWidth = scrollWrapper.clientWidth || 200;
-    
-    let pointSpacing;
-    if (fats.length === 1) {
-        pointSpacing = (visibleWidth - padding * 2) / 2;
-    } else {
-        pointSpacing = (visibleWidth - padding * 2) / 4;
-    }
-    
-    const totalRequiredWidth = padding + (Math.max(0, fats.length - 1) * pointSpacing) + rightBuffer;
-    canvas.width = Math.max(visibleWidth, totalRequiredWidth);
-    canvas.height = canvas.clientHeight || 150;
-    canvas.style.minWidth = canvas.width + "px";
-    canvas.style.display = "block";
-    
-    const ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    const chartHeight = canvas.height - padding * 2;
-    const minFat = Math.min(...fats.map(f => f.bodyFat)) - 1;
-    const maxFat = Math.max(...fats.map(f => f.bodyFat)) + 1;
-    
-    function x(i) { 
-        if (fats.length === 1) {
-            return padding + pointSpacing;
-        }
-        return padding + (i * pointSpacing); 
-    }
-    function y(f) { return padding + ((maxFat - f) / (maxFat - minFat)) * chartHeight; }
-    
-    if (fats.length > 1) {
-        ctx.strokeStyle = "#46eaff";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        fats.forEach((p, i) => {
-            if (i === 0) ctx.moveTo(x(i), y(p.bodyFat));
-            else ctx.lineTo(x(i), y(p.bodyFat));
-        });
-        ctx.stroke();
-    }
-    
-    fats.forEach((p, i) => {
-        ctx.beginPath();
-        ctx.arc(x(i), y(p.bodyFat), 5, 0, Math.PI * 2);
-        ctx.fillStyle = "#46eaff";
-        ctx.fill();
-        
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 10px Arial";
-        ctx.fillText(`${p.bodyFat}%`, x(i) - 15, y(p.bodyFat) - 8);
-        
-        if (fats.length > 1) {
-            ctx.fillStyle = "#b8c7d9";
-            ctx.font = "8px Arial";
-            const dateParts = p.date.split('/');
-            const shortDate = `${dateParts[0]}/${dateParts[1]}`;
-            ctx.fillText(shortDate, x(i) - 12, y(p.bodyFat) + 12);
-        }
-    });
-    
-    if (scrollWrapper.scrollWidth > scrollWrapper.clientWidth) {
-        scrollWrapper.scrollLeft = scrollWrapper.scrollWidth;
-    }
+    drawHistoryChart("fatChart", data.fatHistory || [], "bodyFat", "%", "No body fat data", true);
 }
 
 function updateTimer() {
@@ -2314,6 +2300,8 @@ function hideAllPages() {
     document.getElementById("setupOverlay").style.display = "none";
     document.getElementById("tasksPage").style.display = "none";
     document.getElementById("statsPage").style.display = "none";
+    document.getElementById("weightHistoryPage").style.display = "none";
+    document.getElementById("bodyFatHistoryPage").style.display = "none";
     document.getElementById("caloriePage").style.display = "none";
     document.getElementById("rehabPage").style.display = "none";
     const frequentPage = document.getElementById("frequentMealPage");
@@ -2350,6 +2338,8 @@ function confirmFullReset() {
     weeklyPlan = defaultWeeklyPlan;
     data = { date: getTodayString(), completed: {}, tempTasks: [], meals: [], weightHistory: [], fatHistory: [] };
     document.getElementById("statsPage").style.display = "none";
+    document.getElementById("weightHistoryPage").style.display = "none";
+    document.getElementById("bodyFatHistoryPage").style.display = "none";
     document.getElementById("caloriePage").style.display = "none";
     document.getElementById("tasksPage").style.display = "none";
     document.getElementById("setupOverlay").style.display = "flex";
@@ -2380,6 +2370,8 @@ else {
     document.getElementById("setupOverlay").style.display = "none";
     document.getElementById("tasksPage").style.display = "flex";
     document.getElementById("statsPage").style.display = "none";
+    document.getElementById("weightHistoryPage").style.display = "none";
+    document.getElementById("bodyFatHistoryPage").style.display = "none";
     document.getElementById("caloriePage").style.display = "none";
     document.getElementById("rehabPage").style.display = "none";
     checkRehabStatus();
