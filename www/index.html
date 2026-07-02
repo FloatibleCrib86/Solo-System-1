@@ -74,14 +74,24 @@
             </div>
             <h2>Weight History</h2>
             <div id="weightHistoryList"></div>
-            <button class="page-btn" onclick="openWeightModal()">
-                + Add New Weight
-            </button>
+            <div class="history-actions">
+                <button class="page-btn" onclick="openWeightModal()">
+                    + Add New Weight
+                </button>
+                <button class="page-btn" id="toggleWeightHistoryBtn" onclick="toggleWeightHistoryView()">
+                    Check Further History
+                </button>
+            </div>
             <h2>Body Fat History</h2>
             <div id="fatHistoryList"></div>
-            <button class="page-btn" onclick="openBodyFatModal()">
-                + Add New Body Fat %
-            </button>
+            <div class="history-actions">
+                <button class="page-btn" onclick="openBodyFatModal()">
+                    + Add New Body Fat %
+                </button>
+                <button class="page-btn" id="toggleFatHistoryBtn" onclick="toggleFatHistoryView()">
+                    Check Further History
+                </button>
+            </div>
             <h2>Weekly Focus</h2>
             <div id="weeklyFocus"></div>
             <h2>Rehab Protocol</h2>
@@ -96,6 +106,38 @@
             </button>
             <button class="page-btn" onclick="goToTasks()">
                 ← Back to Tasks
+            </button>
+        </section>
+
+        <section id="weightHistoryPage">
+            <h1>WEIGHT HISTORY</h1>
+            <div class="chart-box history-chart-box">
+                <h2>Weight Progression</h2>
+                <canvas id="weightHistoryChart" width="230" height="145"></canvas>
+            </div>
+            <h2>Records</h2>
+            <div id="weightFullHistoryList" class="full-history-list"></div>
+            <button class="page-btn" onclick="openWeightModal()">
+                + Add New Weight
+            </button>
+            <button class="page-btn" onclick="goToStats()">
+                â† Back to Player Status
+            </button>
+        </section>
+
+        <section id="bodyFatHistoryPage">
+            <h1>BODY FAT HISTORY</h1>
+            <div class="chart-box history-chart-box">
+                <h2>Body Fat Progression</h2>
+                <canvas id="bodyFatHistoryChart" width="230" height="145"></canvas>
+            </div>
+            <h2>Records</h2>
+            <div id="bodyFatFullHistoryList" class="full-history-list"></div>
+            <button class="page-btn" onclick="openBodyFatModal()">
+                + Add New Body Fat %
+            </button>
+            <button class="page-btn" onclick="goToStats()">
+                â† Back to Player Status
             </button>
         </section>
 
