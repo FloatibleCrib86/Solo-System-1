@@ -58,16 +58,18 @@
                 <p><strong>Name:</strong> <span id="nameText"></span></p>
                 <p><strong>Height:</strong> <span id="heightText"></span></p>
                 <p><strong>Current Weight:</strong> <span id="weightText"></span></p>
-                <p><strong>Target Weight:</strong> <span id="goalWeightText"></span></p>
+                <p class="target-weight-row"><strong>Target Weight:</strong> <span id="goalWeightText"></span></p>
                 <p><strong>Current Body Fat:</strong> <span id="bodyFatText"></span></p>
                 <p><strong>Target Body Fat:</strong> <span id="targetBodyFatText"></span></p>
             </div>
             <div class="chart-row">
                 <div class="mini-chart-box">
+                    <button class="inline-edit-btn mini-target-btn" onclick="openTargetWeightModal()">Set New Target Weight</button>
                     <h2>Weight</h2>
                     <canvas id="weightChart" width="115" height="110"></canvas>
                 </div>
                 <div class="mini-chart-box">
+                    <button class="inline-edit-btn mini-target-btn" onclick="openTargetBodyFatModal()">Set New Target Body Fat %</button>
                     <h2>Body Fat %</h2>
                     <canvas id="fatChart" width="115" height="110"></canvas>
                 </div>
@@ -111,6 +113,7 @@
 
         <section id="weightHistoryPage">
             <h1>WEIGHT HISTORY</h1>
+            <div id="weightRateSummary" class="rate-summary-box"></div>
             <div class="chart-box history-chart-box">
                 <h2>Weight Progression</h2>
                 <canvas id="weightHistoryChart" width="230" height="145"></canvas>
@@ -127,6 +130,7 @@
 
         <section id="bodyFatHistoryPage">
             <h1>BODY FAT HISTORY</h1>
+            <div id="bodyFatRateSummary" class="rate-summary-box"></div>
             <div class="chart-box history-chart-box">
                 <h2>Body Fat Progression</h2>
                 <canvas id="bodyFatHistoryChart" width="230" height="145"></canvas>
