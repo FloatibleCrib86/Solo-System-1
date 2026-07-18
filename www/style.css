@@ -141,6 +141,76 @@ h2 {
     background: rgba(0, 217, 255, 0.34);
 }
 
+
+.target-weight-row {
+    margin-bottom: 4px;
+}
+
+.inline-edit-btn {
+    width: 100%;
+    padding: 6px;
+    margin: 2px 0 4px;
+    font-size: 10px;
+    background: rgba(0, 217, 255, 0.14);
+    border: 1px solid rgba(70, 234, 255, 0.7);
+    color: #dffbff;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.rate-summary-box {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    width: 100%;
+    margin: 4px 0 8px;
+}
+
+.rate-card {
+    min-width: 0;
+    padding: 7px 5px;
+    border: 1px solid rgba(70, 234, 255, 0.25);
+    border-radius: 7px;
+    background: rgba(0, 0, 0, 0.25);
+    text-align: center;
+}
+
+.rate-card .rate-label {
+    display: block;
+    min-height: 22px;
+    font-size: 8px;
+    line-height: 1.25;
+    color: #aebfd0;
+}
+
+.rate-card .rate-range {
+    display: block;
+    min-height: 20px;
+    margin-top: 2px;
+    font-size: 6.7px;
+    line-height: 1.2;
+    color: #77ddea;
+}
+
+.rate-card .rate-value {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.rate-card .rate-detail {
+    display: block;
+    margin-top: 2px;
+    font-size: 7px;
+    line-height: 1.25;
+    color: #9fb0c2;
+}
+
+.rate-positive .rate-value { color: #7cff9b; }
+.rate-negative .rate-value { color: #ff6f7d; }
+.rate-neutral .rate-value { color: #d9e4ef; }
+
 /* TIMER */
 #timer {
     margin-top: 6px;
@@ -908,3 +978,14 @@ canvas {
 .modal-box select:focus {
     box-shadow: 0 0 8px rgba(70, 234, 255, 0.65);
 }
+
+
+.mini-target-btn {
+    width: 100%;
+    margin: 0 0 5px;
+    padding: 5px 3px;
+    font-size: 7px;
+    line-height: 1.2;
+}
+
+.graph-target-btn { margin: 0 0 6px; }
