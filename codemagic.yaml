@@ -8,8 +8,8 @@ workflows:
       android_signing:
         - solo_system_release_keystore
       vars:
-        APP_VERSION_CODE: 8
-        APP_VERSION_NAME: "1.7.0"
+        APP_VERSION_CODE: 11
+        APP_VERSION_NAME: "1.8.2"
 
     scripts:
       - name: Install dependencies
@@ -66,8 +66,8 @@ workflows:
 
           text = gradle_path.read_text()
 
-          version_code = os.environ.get("APP_VERSION_CODE", "8")
-          version_name = os.environ.get("APP_VERSION_NAME", "1.7.0")
+          version_code = os.environ.get("APP_VERSION_CODE", "11")
+          version_name = os.environ.get("APP_VERSION_NAME", "1.8.2")
 
           android_match = re.search(r"android\s*\{", text)
           if not android_match:
