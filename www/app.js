@@ -103,6 +103,22 @@ function getModalDate() {
     return fromDateInputValue(dateInput?.value || new Date().toISOString().slice(0, 10));
 }
 
+function parseHistoryDate(dateString) {
+    const [day, month, year] = (dateString || "").split("/").map(Number);
+    if (!day || !month || !year) return null;
+    return new Date(year, month - 1, day);
+}
+
+function formatHistoryDate(date) {
+    return date.toLocaleDateString("en-AU");
+}
+
+function daysBetween(startDate, endDate) {
+    const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    const end = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+    return Math.max(0, Math.round((end - start) / 86400000));
+}
+
 function sortHistoryByDate(entries) {
     entries.sort((a, b) => new Date(a.date.split('/').reverse().join('-')) - new Date(b.date.split('/').reverse().join('-')));
 }
@@ -387,6 +403,7 @@ function loadData() {
 
 let data = loadData();
 removeSeededRegistrationHistoryOnce();
+initializeTargetTracking();
 let frequentMeals = getStorage("frequentMeals") || [];
 
 let rehabData = getStorage("rehabData") || {
@@ -420,6 +437,23 @@ function removeSeededRegistrationHistoryOnce() {
 
     setStorage("historySeedMigrationComplete", true);
     setStorage("questData", data);
+}
+
+function initializeTargetTracking() {
+    const earliestWeight = getWeightHistoryEntries?.()[0];
+    const earliestFat = getFatHistoryEntries?.()[0];
+    const fallbackDate = setupData.registrationDate || earliestWeight?.date || getTodayString();
+
+    if (!setupData.registrationDate) setupData.registrationDate = fallbackDate;
+    if (!setupData.goalWeightSetDate) setupData.goalWeightSetDate = fallbackDate;
+    if (!setupData.targetBodyFatSetDate) setupData.targetBodyFatSetDate = setupData.goalWeightSetDate || fallbackDate;
+    if (!Number.isFinite(Number(setupData.goalWeightStartWeight)) || Number(setupData.goalWeightStartWeight) <= 0) {
+        setupData.goalWeightStartWeight = Number(earliestWeight?.weight || setupData.currentWeight || getCurrentWeight());
+    }
+    if (!Number.isFinite(Number(setupData.targetBodyFatStartValue)) || Number(setupData.targetBodyFatStartValue) <= 0) {
+        setupData.targetBodyFatStartValue = Number(earliestFat?.bodyFat || setupData.bodyFat || getCurrentBodyFat());
+    }
+    setStorage("setupData", setupData);
 }
 
 function saveFrequentMeals() {
@@ -655,6 +689,11 @@ function finishSetup() {
     }
 
     setupData.complete = true;
+    setupData.registrationDate = getTodayString();
+    setupData.goalWeightSetDate = getTodayString();
+    setupData.goalWeightStartWeight = Number(setupData.currentWeight);
+    setupData.targetBodyFatSetDate = getTodayString();
+    setupData.targetBodyFatStartValue = Number(setupData.bodyFat) || (setupData.sex === "female" ? 22 : 15);
     setStorage("setupData", setupData);
     setStorage("weeklyPlan", setupData.weeklyPlan);
 
@@ -1451,6 +1490,33 @@ function openWeightModal() {
     openModal("modalInput");
 }
 
+function openTargetWeightModal() {
+    modalMode = "targetWeight";
+    resetModalInputs();
+    document.getElementById("modalTitle").innerText = "Change Target Weight";
+    const input = document.getElementById("modalInput");
+    input.type = "number";
+    input.min = "1";
+    input.step = "0.1";
+    input.placeholder = "Enter new target weight in kg";
+    input.value = setupData.goalWeight || "";
+    openModal("modalInput");
+}
+
+function openTargetBodyFatModal() {
+    modalMode = "targetBodyFat";
+    resetModalInputs();
+    document.getElementById("modalTitle").innerText = "Set New Target Body Fat %";
+    const input = document.getElementById("modalInput");
+    input.type = "number";
+    input.step = "0.1";
+    input.min = "1";
+    input.max = "70";
+    input.placeholder = "Enter new target body fat %";
+    input.value = setupData.targetBodyFat && setupData.targetBodyFat !== "X" ? setupData.targetBodyFat : "";
+    openModal("modalInput");
+}
+
 function openBodyFatModal() {
     modalMode = "bodyFat";
     resetModalInputs();
@@ -1594,6 +1660,22 @@ function submitModal() {
         delete data.completed[getTaskKey(old)];
     }
     
+    if (modalMode === "targetWeight") {
+        const targetWeight = Number(input);
+        if (!Number.isFinite(targetWeight) || targetWeight <= 0) {
+            showModalError("Enter a valid target weight.", "modalInput");
+            return;
+        }
+        setupData.goalWeight = targetWeight;
+        setupData.goalWeightSetDate = getTodayString();
+        setupData.goalWeightStartWeight = getCurrentWeight();
+        setStorage("setupData", setupData);
+        closeModal();
+        refreshStatsAndHistoryPages();
+        renderCaloriePage();
+        return;
+    }
+
     if (modalMode === "weight") {
         const weight = Number(input);
         if (!Number.isFinite(weight) || weight <= 0) {
@@ -1839,9 +1921,11 @@ function submitModal() {
             return;
         }
         setupData.targetBodyFat = targetFat;
+        setupData.targetBodyFatSetDate = getTodayString();
+        setupData.targetBodyFatStartValue = getCurrentBodyFat();
         setStorage("setupData", setupData);
         closeModal();
-        renderStatsPage();
+        refreshStatsAndHistoryPages();
         renderCaloriePage();
         return;
     }
@@ -1973,6 +2057,7 @@ function renderWeightHistoryPage() {
         editName: "editWeight",
         removeName: "removeWeight"
     });
+    renderRateSummary("weightRateSummary", "weight");
     drawHistoryChart("weightHistoryChart", getWeightHistoryEntries(), "weight", "kg", "No weight data");
     autoResizeWindow();
 }
@@ -1990,8 +2075,107 @@ function renderBodyFatHistoryPage() {
         editName: "editBodyFat",
         removeName: "removeBodyFat"
     });
+    renderRateSummary("bodyFatRateSummary", "bodyFat");
     drawHistoryChart("bodyFatHistoryChart", getFatHistoryEntries(), "bodyFat", "%", "No body fat data");
     autoResizeWindow();
+}
+
+function getPeriodStartValue(entries, valueKey, startDate, fallbackValue = null) {
+    const dated = entries
+        .map(entry => ({ ...entry, parsedDate: parseHistoryDate(entry.date) }))
+        .filter(entry => entry.parsedDate)
+        .sort((a, b) => a.parsedDate - b.parsedDate);
+
+    const onOrBefore = dated.filter(entry => entry.parsedDate <= startDate).at(-1);
+    if (onOrBefore) return { value: Number(onOrBefore[valueKey]), date: startDate };
+
+    const firstAfter = dated.find(entry => entry.parsedDate >= startDate);
+    if (firstAfter) return { value: Number(firstAfter[valueKey]), date: firstAfter.parsedDate };
+
+    if (Number.isFinite(Number(fallbackValue))) return { value: Number(fallbackValue), date: startDate };
+    return null;
+}
+
+function getLatestPeriodValue(entries, valueKey) {
+    const latest = entries
+        .map(entry => ({ ...entry, parsedDate: parseHistoryDate(entry.date) }))
+        .filter(entry => entry.parsedDate && Number.isFinite(Number(entry[valueKey])))
+        .sort((a, b) => a.parsedDate - b.parsedDate)
+        .at(-1);
+    return latest ? { value: Number(latest[valueKey]), date: latest.parsedDate } : null;
+}
+
+function getDesiredDirection(type, startValue) {
+    if (type === "weight") {
+        const target = Number(setupData.goalWeight);
+        if (Number.isFinite(target) && target !== startValue) return target > startValue ? 1 : -1;
+        return setupData.calorieMode === "Bulking" ? 1 : -1;
+    }
+    const target = Number(setupData.targetBodyFat);
+    if (Number.isFinite(target) && target > 0 && target !== startValue) return target > startValue ? 1 : -1;
+    return -1;
+}
+
+function formatRateDate(date, includeWeekday = false, includeOrdinal = false) {
+    const d = new Date(date);
+    if (Number.isNaN(d.getTime())) return "Unknown date";
+    const day = d.getDate();
+    const ordinal = includeOrdinal ? `${day}${day % 10 === 1 && day !== 11 ? "st" : day % 10 === 2 && day !== 12 ? "nd" : day % 10 === 3 && day !== 13 ? "rd" : "th"}` : day;
+    const month = d.toLocaleDateString("en-AU", { month: "short" });
+    const year = d.getFullYear();
+    const weekday = includeWeekday ? `${d.toLocaleDateString("en-AU", { weekday: "long" })} ` : "";
+    return `${weekday}${ordinal} ${month} ${year}`;
+}
+
+function buildRateCard(label, start, latest, suffix, desiredDirection, rangeText) {
+    if (!start || !latest || latest.date < start.date) {
+        return `<div class="rate-card rate-neutral"><span class="rate-label">${label}</span><span class="rate-range">${rangeText || "Date unavailable"}</span><span class="rate-value">No data</span><span class="rate-detail">Add another record to calculate</span></div>`;
+    }
+    const delta = latest.value - start.value;
+    const days = daysBetween(start.date, latest.date);
+    const daily = days > 0 ? delta / days : 0;
+    const aligned = Math.abs(delta) < 0.0001 ? null : Math.sign(delta) === desiredDirection;
+    const statusClass = aligned === null ? "rate-neutral" : aligned ? "rate-positive" : "rate-negative";
+    const signedDelta = `${delta > 0 ? "+" : ""}${delta.toFixed(1)}${suffix}`;
+    const signedDaily = `${daily > 0 ? "+" : ""}${daily.toFixed(2)}${suffix}/day`;
+    return `<div class="rate-card ${statusClass}"><span class="rate-label">${label}</span><span class="rate-range">${rangeText}</span><span class="rate-value">${signedDelta}</span><span class="rate-detail">${start.value.toFixed(1)}${suffix} → ${latest.value.toFixed(1)}${suffix}<br>${signedDaily}</span></div>`;
+}
+
+function renderRateSummary(containerId, type) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const isWeight = type === "weight";
+    const entries = isWeight ? getWeightHistoryEntries() : getFatHistoryEntries();
+    const valueKey = isWeight ? "weight" : "bodyFat";
+    const suffix = isWeight ? " kg" : "%";
+    const latestRecorded = getLatestPeriodValue(entries, valueKey);
+    const latest = {
+        value: latestRecorded?.value ?? (isWeight ? getCurrentWeight() : getCurrentBodyFat()),
+        date: new Date()
+    };
+    const today = new Date();
+    const targetDateValue = isWeight
+        ? (setupData.goalWeightSetDate || setupData.registrationDate)
+        : (setupData.targetBodyFatSetDate || setupData.registrationDate);
+    const targetDate = parseHistoryDate(targetDateValue) || today;
+    const targetFallback = isWeight ? setupData.goalWeightStartWeight : setupData.targetBodyFatStartValue;
+    const targetStart = { value: Number(targetFallback), date: targetDate };
+    const monthStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    const day = today.getDay();
+    const mondayOffset = day === 0 ? 6 : day - 1;
+    const weekStartDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - mondayOffset);
+    const monthStart = getPeriodStartValue(entries, valueKey, monthStartDate, targetDate <= monthStartDate ? targetFallback : null);
+    const weekStart = getPeriodStartValue(entries, valueKey, weekStartDate, targetDate <= weekStartDate ? targetFallback : null);
+    const desiredDirection = getDesiredDirection(type, Number(targetStart.value));
+
+    const targetRangeDate = targetDate.toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+    const weekRangeDate = weekStartDate.toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+    container.innerHTML = [
+        buildRateCard("Since target set", targetStart, latest, suffix, desiredDirection, `${targetRangeDate} → Now`),
+        buildRateCard("This month", monthStart, latest, suffix, desiredDirection, `1st ${monthStartDate.toLocaleDateString("en-AU", { month: "long" })} → Now`),
+        buildRateCard("This week", weekStart, latest, suffix, desiredDirection, `Monday ${weekRangeDate} → Now`)
+    ].join("");
 }
 
 function updateHistoryBackLabels() {
@@ -2425,7 +2609,7 @@ function confirmFullReset() {
     localStorage.removeItem("soloSystem_public_weeklyPlan");
     localStorage.removeItem("soloSystem_public_questData");
     setupStep = 0;
-    setupData = { complete: false, name: "", height: "", currentWeight: "", goalWeight: "", bodyFat: "", targetBodyFat: "", age: "", sex: "male", activityLevel: "Moderate", calorieMode: "Cutting", weeklyPlan: {} };
+    setupData = { complete: false, name: "", height: "", currentWeight: "", goalWeight: "", bodyFat: "", targetBodyFat: "", age: "", sex: "male", activityLevel: "Moderate", calorieMode: "Cutting", weeklyPlan: {}, registrationDate: "", goalWeightSetDate: "", goalWeightStartWeight: "", targetBodyFatSetDate: "", targetBodyFatStartValue: "" };
     weeklyPlan = defaultWeeklyPlan;
     data = { date: getTodayString(), completed: {}, tempTasks: [], meals: [], weightHistory: [], fatHistory: [] };
     document.getElementById("statsPage").style.display = "none";
